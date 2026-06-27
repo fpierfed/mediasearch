@@ -23,7 +23,7 @@ def walk(roots: list[Path]) -> Iterator[MediaFile]:
     """
     for root in roots:
         root = Path(root)
-        for p in sorted(root.rglob("*")):
+        for p in sorted(root.rglob('*')):
             try:
                 st = p.stat()
             except OSError:

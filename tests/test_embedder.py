@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from medsearch.embedder import FakeEmbedder, l2_normalize
-from medsearch.config import EMBED_DIM
+from mediasearch.embedder import FakeEmbedder, l2_normalize
+from mediasearch.config import EMBED_DIM
 
 
 def test_l2_normalize_unit_length():
@@ -20,48 +20,49 @@ def test_l2_normalize_handles_zero_vector():
 
 def test_fake_text_is_deterministic_and_normalized():
     e = FakeEmbedder()
-    a = e.embed_texts(["a cat", "a dog"])
-    b = e.embed_texts(["a cat", "a dog"])
+    a = e.embed_texts(['a cat', 'a dog'])
+    b = e.embed_texts(['a cat', 'a dog'])
     assert a.shape == (2, EMBED_DIM)
-    assert np.allclose(a, b)                      # deterministic
+    assert np.allclose(a, b)  # deterministic
     assert np.allclose(np.linalg.norm(a, axis=1), 1.0)
-    assert not np.allclose(a[0], a[1])            # different inputs -> different vectors
+    assert not np.allclose(a[0], a[1])  # different inputs -> different vectors
 
 
 def test_fake_same_image_same_vector():
     e = FakeEmbedder()
-    img = Image.new("RGB", (8, 8), (10, 20, 30))
+    img = Image.new('RGB', (8, 8), (10, 20, 30))
     v1 = e.embed_images([img])
-    v2 = e.embed_images([Image.new("RGB", (8, 8), (10, 20, 30))])
+    v2 = e.embed_images([Image.new('RGB', (8, 8), (10, 20, 30))])
     assert np.allclose(v1, v2)
 
 
 def test_mlx_text_embedder(monkeypatch):
     import sys
     from unittest.mock import MagicMock
-    from medsearch.embedder import MLXTextEmbedder
+    from mediasearch.embedder import MLXTextEmbedder
 
     mock_load = MagicMock()
-    
+
     class MockOutput:
         def __init__(self, text_embeds):
             self.text_embeds = text_embeds
-            
+
     mock_model = MagicMock()
     mock_model.return_value = MockOutput(text_embeds=np.ones((2, 768)))
     mock_processor = MagicMock()
-    mock_processor.return_value = {"input_ids": [1, 2, 3]}
+    mock_processor.return_value = {'input_ids': [1, 2, 3]}
     mock_load.return_value = (mock_model, mock_processor)
-    
+
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
-    monkeypatch.setitem(sys.modules, "mlx_embeddings", mock_mlx)
-    
+    monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+
     embedder = MLXTextEmbedder(dim=768)
-    out = embedder.embed_texts(["hello", "world"])
-    
+    out = embedder.embed_texts(['hello', 'world'])
+
     assert out.shape == (2, 768)
-    from medsearch.config import DEFAULT_TEXT_MODEL
+    from mediasearch.config import DEFAULT_TEXT_MODEL
+
     mock_load.assert_called_once_with(DEFAULT_TEXT_MODEL)
     mock_processor.assert_called_once()
     mock_model.assert_called_once()
@@ -72,33 +73,36 @@ def test_mlx_text_embedder_dimension_mismatch(monkeypatch):
     import sys
     import pytest
     from unittest.mock import MagicMock
-    from medsearch.embedder import MLXTextEmbedder
+    from mediasearch.embedder import MLXTextEmbedder
 
     mock_load = MagicMock()
+
     class MockOutput:
         def __init__(self, text_embeds):
             self.text_embeds = text_embeds
-            
+
     mock_model = MagicMock()
     mock_model.return_value = MockOutput(text_embeds=np.ones((2, 512)))
     mock_processor = MagicMock()
     mock_load.return_value = (mock_model, mock_processor)
-    
+
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
-    monkeypatch.setitem(sys.modules, "mlx_embeddings", mock_mlx)
-    
+    monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+
     embedder = MLXTextEmbedder(dim=768)
-    
-    with pytest.raises(ValueError, match="Expected text embedding dimension 768, got 512"):
-        embedder.embed_texts(["hello", "world"])
+
+    with pytest.raises(
+        ValueError, match='Expected text embedding dimension 768, got 512'
+    ):
+        embedder.embed_texts(['hello', 'world'])
 
 
 def test_mlx_text_embedder_batching(monkeypatch):
     """Batch loop is exercised when texts exceed batch_size."""
     import sys
     from unittest.mock import MagicMock
-    from medsearch.embedder import MLXTextEmbedder
+    from mediasearch.embedder import MLXTextEmbedder
 
     mock_load = MagicMock()
 
@@ -113,15 +117,15 @@ def test_mlx_text_embedder_batching(monkeypatch):
         MockOutput(text_embeds=np.ones((1, 768))),
     ]
     mock_processor = MagicMock()
-    mock_processor.return_value = {"input_ids": [1, 2, 3]}
+    mock_processor.return_value = {'input_ids': [1, 2, 3]}
     mock_load.return_value = (mock_model, mock_processor)
 
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
-    monkeypatch.setitem(sys.modules, "mlx_embeddings", mock_mlx)
+    monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
 
     embedder = MLXTextEmbedder(batch_size=2, dim=768)
-    out = embedder.embed_texts(["a", "b", "c"])  # 3 texts, 2 batches
+    out = embedder.embed_texts(['a', 'b', 'c'])  # 3 texts, 2 batches
 
     assert out.shape == (3, 768)
     assert mock_processor.call_count == 2  # two batches
@@ -133,7 +137,7 @@ def test_mlx_text_embedder_embed_images_raises(monkeypatch):
     """MLXTextEmbedder.embed_images always raises NotImplementedError."""
     import sys
     from unittest.mock import MagicMock
-    from medsearch.embedder import MLXTextEmbedder
+    from mediasearch.embedder import MLXTextEmbedder
 
     mock_load = MagicMock()
     mock_model = MagicMock()
@@ -142,11 +146,11 @@ def test_mlx_text_embedder_embed_images_raises(monkeypatch):
 
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
-    monkeypatch.setitem(sys.modules, "mlx_embeddings", mock_mlx)
+    monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
 
     embedder = MLXTextEmbedder(dim=768)
-    dummy = Image.new("RGB", (8, 8))
-    with pytest.raises(NotImplementedError, match="images"):
+    dummy = Image.new('RGB', (8, 8))
+    with pytest.raises(NotImplementedError, match='images'):
         embedder.embed_images([dummy])
 
 
@@ -158,29 +162,34 @@ def test_mlx_siglip_smoke(monkeypatch):
     import sys
 
     # Only run when MLX is actually importable and functional.
-    mlx_avail = pytest.importorskip("mlx_embeddings", reason="mlx-embeddings not installed")
+    mlx_avail = pytest.importorskip(
+        'mlx_embeddings', reason='mlx-embeddings not installed'
+    )
     # Check for Metal / Apple Silicon — mlx needs it.
     try:
         import mlx.core as mx
-        if mx.default_device().type != mx.DeviceType.gpu:
-            pytest.skip("MLX GPU device not available (likely Intel Mac or CI)")
-    except Exception:
-        pytest.skip("MLX device check failed")
 
-    from medsearch.embedder import MLXSigLIPEmbedder
-    from medsearch.config import DEFAULT_MODEL
+        if mx.default_device().type != mx.DeviceType.gpu:
+            pytest.skip(
+                'MLX GPU device not available (likely Intel Mac or CI)'
+            )
+    except Exception:
+        pytest.skip('MLX device check failed')
+
+    from mediasearch.embedder import MLXSigLIPEmbedder
+    from mediasearch.config import DEFAULT_MODEL
 
     embedder = MLXSigLIPEmbedder(model_name=DEFAULT_MODEL, batch_size=2)
 
     # Text path: ensure we can embed a small batch.
-    out = embedder.embed_texts(["a cat", "a dog"])
+    out = embedder.embed_texts(['a cat', 'a dog'])
     assert out.shape[0] == 2
     assert out.shape[1] == embedder.dim
     assert np.allclose(np.linalg.norm(out, axis=1), 1.0)
 
     # Image path: ensure we can embed a small batch.
-    img1 = Image.new("RGB", (64, 64), (200, 10, 10))
-    img2 = Image.new("RGB", (64, 64), (10, 10, 200))
+    img1 = Image.new('RGB', (64, 64), (200, 10, 10))
+    img2 = Image.new('RGB', (64, 64), (10, 10, 200))
     img_out = embedder.embed_images([img1, img2])
     assert img_out.shape[0] == 2
     assert img_out.shape[1] == embedder.dim
@@ -193,35 +202,39 @@ def test_mlx_siglip_dimension_mismatch(monkeypatch):
     """MLXSigLIPEmbedder.embed_texts raises ValueError on dimension mismatch."""
     import sys
     from unittest.mock import MagicMock
-    from medsearch.embedder import MLXSigLIPEmbedder
+    from mediasearch.embedder import MLXSigLIPEmbedder
 
     mock_load = MagicMock()
     mock_model = MagicMock()
     mock_processor = MagicMock()
 
     def _proc_side_effect(**kwargs):
-        if "images" in kwargs:
-            return {"pixel_values": [1, 2, 3]}
-        return {"input_ids": [1, 2, 3]}
+        if 'images' in kwargs:
+            return {'pixel_values': [1, 2, 3]}
+        return {'input_ids': [1, 2, 3]}
 
     mock_processor.side_effect = _proc_side_effect
     mock_load.return_value = (mock_model, mock_processor)
 
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
-    monkeypatch.setitem(sys.modules, "mlx_embeddings", mock_mlx)
+    monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
 
     # Mock _to_numpy to return an array with wrong dimension
-    embedder = MLXSigLIPEmbedder(model_name="test", dim=1152)
+    embedder = MLXSigLIPEmbedder(model_name='test', dim=1152)
     embedder._to_numpy = lambda embeds: np.ones((2, 768), dtype=np.float32)
 
-    with pytest.raises(ValueError, match="Expected text embedding dimension 1152, got 768"):
-        embedder.embed_texts(["hello", "world"])
+    with pytest.raises(
+        ValueError, match='Expected text embedding dimension 1152, got 768'
+    ):
+        embedder.embed_texts(['hello', 'world'])
 
     # Also cover the image dimension mismatch guard
-    embedder2 = MLXSigLIPEmbedder(model_name="test", dim=1152)
+    embedder2 = MLXSigLIPEmbedder(model_name='test', dim=1152)
     embedder2._to_numpy = lambda embeds: np.ones((2, 768), dtype=np.float32)
 
-    dummy = Image.new("RGB", (8, 8))
-    with pytest.raises(ValueError, match="Expected image embedding dimension 1152, got 768"):
+    dummy = Image.new('RGB', (8, 8))
+    with pytest.raises(
+        ValueError, match='Expected image embedding dimension 1152, got 768'
+    ):
         embedder2.embed_images([dummy, dummy])

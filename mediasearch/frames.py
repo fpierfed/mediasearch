@@ -12,7 +12,14 @@ import objc
 from AVFoundation import AVURLAsset, AVAssetImageGenerator
 from CoreMedia import CMTimeMakeWithSeconds, CMTimeGetSeconds
 from Foundation import NSURL
-from Quartz import CGImageGetDataProvider, CGDataProviderCopyData, CGImageGetWidth, CGImageGetHeight, CGImageGetBytesPerRow, CGImageGetBitsPerPixel
+from Quartz import (
+    CGImageGetDataProvider,
+    CGDataProviderCopyData,
+    CGImageGetWidth,
+    CGImageGetHeight,
+    CGImageGetBytesPerRow,
+    CGImageGetBitsPerPixel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,54 +44,66 @@ def _cgimage_to_pil(cg_image: Any) -> Image.Image:
     # (kCVPixelFormatType_32BGRA), so use the appropriate raw decoder.
     # frombuffer is efficient as it avoids a full copy if possible.
     if bpp == 32:
-        img = Image.frombuffer("RGBA", (width, height), data, "raw", "BGRA", bpr, 1)
+        img = Image.frombuffer(
+            'RGBA', (width, height), data, 'raw', 'BGRA', bpr, 1
+        )
     else:
-        img = Image.frombuffer("RGB", (width, height), data, "raw", "RGB", bpr, 1)
-    return img.convert("RGB")
+        img = Image.frombuffer(
+            'RGB', (width, height), data, 'raw', 'RGB', bpr, 1
+        )
+    return img.convert('RGB')
 
 
 def extract_frames(path: Path, interval: float) -> list[Frame]:
     """Decode sequentially using AVFoundation for hardware acceleration."""
     out: list[Frame] = []
-    
+
     url = NSURL.fileURLWithPath_(str(path))
     if not url:
-        raise ValueError(f"Failed to create NSURL from path: {path}")
-        
+        raise ValueError(f'Failed to create NSURL from path: {path}')
+
     asset = AVURLAsset.URLAssetWithURL_options_(url, None)
     if not asset:
-        raise ValueError(f"Failed to load asset from URL: {url}")
-        
+        raise ValueError(f'Failed to load asset from URL: {url}')
+
     generator = AVAssetImageGenerator.assetImageGeneratorWithAsset_(asset)
     if not generator:
-        raise ValueError(f"Failed to create image generator for asset: {url}")
-        
+        raise ValueError(f'Failed to create image generator for asset: {url}')
+
     generator.setAppliesPreferredTrackTransform_(True)
-    
+
     duration_cmtime = asset.duration()
     duration_sec = CMTimeGetSeconds(duration_cmtime)
     if duration_sec <= 0:
-        raise ValueError(f"Video has invalid duration: {duration_sec}")
-        
+        raise ValueError(f'Video has invalid duration: {duration_sec}')
+
     next_t = 0.0
     idx = 0
-    
+
     while next_t <= duration_sec:
         # 600 timescale is a standard safe value for video timing
-        time = CMTimeMakeWithSeconds(next_t, 600) 
-        
+        time = CMTimeMakeWithSeconds(next_t, 600)
+
         with objc.autorelease_pool():
             try:
-                cg_image, error = generator.copyCGImageAtTime_actualTime_error_(time, None, None)
+                cg_image, error = (
+                    generator.copyCGImageAtTime_actualTime_error_(
+                        time, None, None
+                    )
+                )
                 if cg_image:
                     pil_image = _cgimage_to_pil(cg_image)
-                    out.append(Frame(image=pil_image, timestamp=next_t, frame_idx=idx))
+                    out.append(
+                        Frame(image=pil_image, timestamp=next_t, frame_idx=idx)
+                    )
             except Exception:
-                logger.exception("Failed to extract frame at %ss from %s", next_t, path)
-                
+                logger.exception(
+                    'Failed to extract frame at %ss from %s', next_t, path
+                )
+
         idx += 1
         next_t += interval
-        
+
     return out
 
 
@@ -107,5 +126,7 @@ def dedup(frames: list[Frame], threshold: int) -> list[Frame]:
     return kept
 
 
-def sample_video(path: Path, interval: float, dedup_threshold: int) -> list[Frame]:
+def sample_video(
+    path: Path, interval: float, dedup_threshold: int
+) -> list[Frame]:
     return dedup(extract_frames(path, interval), dedup_threshold)

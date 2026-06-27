@@ -1,4 +1,4 @@
-# medsearch
+# mediasearch
 
 Local semantic search over a macOS image & video library. Text→media, image→media,
 and clip→clip, powered by SigLIP 2 (MLX) and LanceDB. Fully offline after the one-time
@@ -14,19 +14,19 @@ pip install -e ".[dev]"
 
 ```bash
 # Build / update the index (incremental + resumable)
-medsearch index ~/Movies ~/Pictures
+mediasearch index ~/Movies ~/Pictures
 
 # Search
-medsearch search "two people hiking at sunset"
-medsearch similar-image ~/Pictures/example.jpg
-medsearch similar-clip ~/Movies/example.mov
+mediasearch search "two people hiking at sunset"
+mediasearch similar-image ~/Pictures/example.jpg
+mediasearch similar-clip ~/Movies/example.mov
 
 # Inspect
-medsearch status
+mediasearch status
 ```
 
 Common flags: `--top-k N`, `--type image|video`, `--json`, `--open` (reveal top hit in
-Finder), `--index-path PATH` (default `~/.medsearch/index`), `--model ID`.
+Finder), `--index-path PATH` (default `~/.mediasearch/index`), `--model ID`.
 
 ### Usage examples
 
@@ -34,7 +34,7 @@ Finder), `--index-path PATH` (default `~/.medsearch/index`), `--model ID`.
 
 ```bash
 # Index your media folders (incremental — re-run to pick up new files)
-$ medsearch index ~/Pictures ~/Movies
+$ mediasearch index ~/Pictures ~/Movies
 Indexing: 100%|████████████| 342/342 [00:45<00:00, 7.5file/s]
 Indexed: 334 done, 8 errors, 1204 vectors across 342 files.
 ```
@@ -42,7 +42,7 @@ Indexed: 334 done, 8 errors, 1204 vectors across 342 files.
 **Text search with JSON output:**
 
 ```bash
-$ medsearch search "sunset over mountains" --json --top-k 3
+$ mediasearch search "sunset over mountains" --json --top-k 3
 [
   {
     "rank": 1,
@@ -69,7 +69,7 @@ $ medsearch search "sunset over mountains" --json --top-k 3
 **Search only videos:**
 
 ```bash
-$ medsearch search "ocean waves" --type video
+$ mediasearch search "ocean waves" --type video
  1. 0.215  [VISUAL][AUDIO] /Users/me/Movies/beach-walk.mp4  @ 1:18
  2. 0.192  [VISUAL][AUDIO] /Users/me/Movies/surfing.mp4  @ 0:06
  3. 0.164  [VISUAL] /Users/me/Movies/coastline-drone.mp4  @ 2:30
@@ -78,14 +78,14 @@ $ medsearch search "ocean waves" --type video
 **Find similar images:**
 
 ```bash
-$ medsearch similar-image ~/Pictures/reference.jpg --json --top-k 3
+$ mediasearch similar-image ~/Pictures/reference.jpg --json --top-k 3
 # Returns images (and optionally videos) visually similar to reference.jpg
 ```
 
 **Find similar video clips:**
 
 ```bash
-$ medsearch similar-clip ~/Movies/sample.mov
+$ mediasearch similar-clip ~/Movies/sample.mov
  1. 1.000  /Users/me/Movies/sample.mov  @ 0:00
  2. 0.892  /Users/me/Movies/sample-edit.mov  @ 0:00
  3. 0.745  /Users/me/Movies/outtakes.mov  @ 1:12
@@ -94,31 +94,31 @@ $ medsearch similar-clip ~/Movies/sample.mov
 **Filter by type in similar-image:**
 
 ```bash
-$ medsearch similar-image ~/Pictures/photo.jpg --type video
+$ mediasearch similar-image ~/Pictures/photo.jpg --type video
 # Finds videos that contain frames visually similar to photo.jpg
 ```
 
 **Inspect the index:**
 
 ```bash
-$ medsearch status
+$ mediasearch status
 files=342  done=334  pending=0  error=8  vectors=1204
 
-$ medsearch status --index-path /Volumes/external/medsearch-index
+$ mediasearch status --index-path /Volumes/external/mediasearch-index
 files=1240  done=1237  pending=0  error=3  vectors=5102
 ```
 
 **Open the top hit in Finder:**
 
 ```bash
-$ medsearch search "red bicycle" --open
+$ mediasearch search "red bicycle" --open
 # Reveals the best-matching file in Finder
 ```
 
 **Rebuild with a different model:**
 
 ```bash
-$ medsearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
+$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
 # Switches to the faster base model and rebuilds the entire index
 ```
 
@@ -152,6 +152,7 @@ starting points for the default `so400m` model; calibrate on your own library.
 | `< 0.5` | Probably unrelated |
 
 Notes:
+
 - **Calibrate empirically.** Run a few queries you know the answers to and look for the
   score *drop-off* — there's usually a visible gap between real matches and noise. Set any
   cutoff at that gap rather than at a fixed global number.
@@ -178,15 +179,15 @@ models requires rebuilding the index:
 
 ```bash
 # Rebuild the whole index with the faster base model
-medsearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
+mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
 
 # Then always pass the same --model for searches against that index
-medsearch search "a red bicycle" --model mlx-community/siglip2-base-patch16-384
+mediasearch search "a red bicycle" --model mlx-community/siglip2-base-patch16-384
 ```
 
-If you query an index with the wrong model, medsearch detects the dimension mismatch and
+If you query an index with the wrong model, mediasearch detects the dimension mismatch and
 tells you to `--reindex` rather than failing cryptically. To make a model the permanent
-default, change `DEFAULT_MODEL` in `medsearch/config.py`.
+default, change `DEFAULT_MODEL` in `mediasearch/config.py`.
 
 ## Tuning (for slower machines / larger libraries)
 

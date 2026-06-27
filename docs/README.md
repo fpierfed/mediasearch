@@ -1,4 +1,4 @@
-# medsearch — Installation
+# mediasearch — Installation
 
 ## Requirements
 
@@ -9,8 +9,8 @@
 ## Install
 
 ```bash
-git clone https://github.com/.../medsearch.git   # or your fork
-cd medsearch
+git clone https://github.com/.../mediasearch.git   # or your fork
+cd mediasearch
 pip install -e ".[dev]"
 ```
 
@@ -30,7 +30,7 @@ python scripts/smoke_embed.py
 
 ```bash
 # Build the index (incremental — re-run to pick up new files)
-medsearch index ~/Movies ~/Pictures
+mediasearch index ~/Movies ~/Pictures
 ```
 
 ### Usage examples
@@ -39,7 +39,7 @@ medsearch index ~/Movies ~/Pictures
 
 ```bash
 # Search across all media
-$ medsearch search "sunset over mountains" --json --top-k 3
+$ mediasearch search "sunset over mountains" --json --top-k 3
 [
   {
     "rank": 1, "score": 0.231,
@@ -51,7 +51,7 @@ $ medsearch search "sunset over mountains" --json --top-k 3
 ]
 
 # Search only videos (audio transcripts are searched too)
-$ medsearch search "ocean waves" --type video
+$ mediasearch search "ocean waves" --type video
  1. 0.215  [VISUAL][AUDIO] /Users/me/Movies/beach-walk.mp4  @ 1:18
  2. 0.192  [VISUAL][AUDIO] /Users/me/Movies/surfing.mp4  @ 0:06
 ```
@@ -59,27 +59,27 @@ $ medsearch search "ocean waves" --type video
 **Find visually similar images or clips:**
 
 ```bash
-$ medsearch similar-image ~/Pictures/reference.jpg --top-k 3
-$ medsearch similar-clip ~/Movies/sample.mov --json
-$ medsearch similar-image ~/Pictures/photo.jpg --type video   # only video matches
+mediasearch similar-image ~/Pictures/reference.jpg --top-k 3
+mediasearch similar-clip ~/Movies/sample.mov --json
+mediasearch similar-image ~/Pictures/photo.jpg --type video   # only video matches
 ```
 
 **Inspect and manage the index:**
 
 ```bash
-$ medsearch status
+$ mediasearch status
 files=342  done=334  pending=0  error=8  vectors=1204
 
-$ medsearch status --index-path /Volumes/external/medsearch-index
+$ mediasearch status --index-path /Volumes/external/mediasearch-index
 
 # Switch to the faster base model (requires rebuild)
-$ medsearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
+$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
 ```
 
 **Reveal the top hit in Finder:**
 
 ```bash
-$ medsearch search "red bicycle" --open
+mediasearch search "red bicycle" --open
 ```
 
 ## Model choice
@@ -92,17 +92,18 @@ Two SigLIP 2 sizes are supported.  Pick one with `--model`:
 | `mlx-community/siglip2-base-patch16-384` | 768 | Good | ~3–5× faster |
 
 The model and its embedding dimension are **paired** — switching models requires
-`--reindex`.  medsearch detects mismatches and tells you what to do.
+`--reindex`.  mediasearch detects mismatches and tells you what to do.
 
 ## Troubleshooting
 
-**`Could not load model ... medsearch needs Apple Silicon + MLX`**
+**`Could not load model ... mediasearch needs Apple Silicon + MLX`**
 → You are on an Intel Mac.  This tool requires Apple Silicon.
 
 **`Expected text/image embedding dimension X, got Y`**
 → The on-disk index was built with a different model.  Run:
+
 ```bash
-medsearch index <dirs> --model <your-model> --reindex
+mediasearch index <dirs> --model <your-model> --reindex
 ```
 
 **Search is slow**
