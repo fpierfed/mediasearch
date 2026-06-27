@@ -1,0 +1,8 @@
+# Project-local artifacts
+.venv/
+__pycache__/
+*.pyc
+.medsearch/
+*.lance/
+.DS_Store
+.coverage
