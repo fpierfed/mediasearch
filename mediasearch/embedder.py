@@ -23,7 +23,9 @@ class Embedder(Protocol):
 
 
 class FakeEmbedder:
-    """Deterministic, model-free embedder for tests. Same content -> same vector."""
+    """
+    Deterministic, model-free embedder for tests. Same content -> same vector.
+    """
 
     def __init__(self, dim: int = EMBED_DIM):
         """Initialise FakeEmbedder with a specific embedding dimension."""
@@ -49,7 +51,9 @@ class FakeEmbedder:
 
 
 class MLXSigLIPEmbedder:
-    """SigLIP 2 embeddings via mlx-embeddings. Loads the model+processor once."""
+    """
+    SigLIP 2 embeddings via mlx-embeddings. Loads the model+processor once.
+    """
 
     def __init__(
         self, model_name: str, batch_size: int = 16, dim: int = EMBED_DIM
@@ -84,7 +88,8 @@ class MLXSigLIPEmbedder:
         out_normalized = l2_normalize(np.vstack(out))
         if out_normalized.shape[1] != self.dim:
             raise ValueError(
-                f'Expected text embedding dimension {self.dim}, got {out_normalized.shape[1]}'
+                f'Expected text embedding dimension {self.dim}, '
+                + f'got {out_normalized.shape[1]}'
             )
         return out_normalized
 
@@ -103,7 +108,8 @@ class MLXSigLIPEmbedder:
         out_normalized = l2_normalize(np.vstack(out))
         if out_normalized.shape[1] != self.dim:
             raise ValueError(
-                f'Expected image embedding dimension {self.dim}, got {out_normalized.shape[1]}'
+                f'Expected image embedding dimension {self.dim}, '
+                + f'got {out_normalized.shape[1]}'
             )
         return out_normalized
 
@@ -144,7 +150,8 @@ class MLXTextEmbedder:
         out_normalized = l2_normalize(np.vstack(out))
         if out_normalized.shape[1] != self.dim:
             raise ValueError(
-                f'Expected text embedding dimension {self.dim}, got {out_normalized.shape[1]}'
+                f'Expected text embedding dimension {self.dim}, '
+                + f'got {out_normalized.shape[1]}'
             )
         return out_normalized
 

@@ -165,7 +165,6 @@ def test_mlx_siglip_smoke(monkeypatch):
 
     Skipped on machines without a working MLX install (e.g. CI, Intel Macs).
     """
-    import sys
 
     # Only run when MLX is actually importable and functional.
     mlx_avail = pytest.importorskip(

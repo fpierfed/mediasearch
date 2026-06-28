@@ -27,7 +27,8 @@ def _config(index_path: Optional[Path], model: Optional[str] = None) -> Config:
         c.index_path = index_path
     c.model = model or DEFAULT_MODEL
     try:
-        c.embed_dim  # validate the model is known (raises ValueError otherwise)
+        # validate the model is known (raises ValueError otherwise)
+        c.embed_dim
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     return c
@@ -40,8 +41,12 @@ def _open_store(config: Config) -> Store:
     )
 
 
-def _build_embedder(config: Config, text_model: Optional[str] = None) -> Embedder:
-    """Build and return an embedder for images or text, using a fake if requested."""
+def _build_embedder(
+    config: Config, text_model: Optional[str] = None
+) -> Embedder:
+    """
+    Build and return an embedder for images or text, using a fake if requested.
+    """
     if os.environ.get('MEDIASEARCH_FAKE_EMBEDDER') == '1':
         from .embedder import FakeEmbedder
 
@@ -60,21 +65,26 @@ def _build_embedder(config: Config, text_model: Optional[str] = None) -> Embedde
         model_name = text_model or config.model
         raise typer.BadParameter(
             f"Could not load model '{model_name}': {exc}. "
-            'mediasearch needs Apple Silicon + MLX and downloads the model on first use.'
+            'mediasearch needs Apple Silicon + MLX and downloads the model '
+            + 'on first use.'
         ) from exc
 
 
 def _guard_dim(store: Store, config: Config, reindex: bool = False) -> None:
-    """Validate that the on-disk embeddings table matches the configured visual model dimension."""
+    """
+    Validate that the on-disk embeddings table matches the configured visual
+    model dimension.
+    """
     on_disk = store.index_dim()
     if on_disk != config.embed_dim:
         if reindex:
             store.reset()
         else:
             raise typer.BadParameter(
-                f'Index at {config.index_path} stores {on_disk}-d vectors, but model '
-                f"'{config.model}' produces {config.embed_dim}-d. Rebuild with "
-                f'`mediasearch index <dirs> --model {config.model} --reindex`, or delete {config.index_path}.'
+                f'Index at {config.index_path} stores {on_disk}-d vectors, '
+                + f"but model '{config.model}' produces {config.embed_dim}-d. "
+                + 'Rebuild with `mediasearch index <dirs> --model '
+                + f'{config.model} --reindex`, or delete {config.index_path}.'
             )
 
 
@@ -92,7 +102,10 @@ def _guard_text_dim(store: Store) -> None:
 
 
 def _emit(results: list[dict], as_json: bool, open_top: bool) -> None:
-    """Output search results to the console, optionally in JSON format, and optionally open the top result."""
+    """
+    Output search results to the console, optionally in JSON format, and
+    optionally open the top result.
+    """
     if as_json:
         typer.echo(_json.dumps(results, indent=2))
     elif not results:
@@ -102,7 +115,8 @@ def _emit(results: list[dict], as_json: bool, open_top: bool) -> None:
             suffix = f'  @ {r["time"]}' if r['time'] else ''
             mod_prefix = f'{r["modality"]} ' if 'modality' in r else ''
             typer.echo(
-                f'{r["rank"]:2d}. {r["score"]:.3f}  {mod_prefix}{r["path"]}{suffix}'
+                f'{r["rank"]:2d}. {r["score"]:.3f}  '
+                + f'{mod_prefix}{r["path"]}{suffix}'
             )
     if open_top and results:
         subprocess.run(['open', '-R', results[0]['path']], check=False)

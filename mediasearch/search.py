@@ -31,7 +31,10 @@ def format_timestamp(seconds: float) -> str:
 
 
 def _group_by_media(rows: list[dict]) -> list[dict]:
-    """Group search result rows by media file, keeping only the best match per file."""
+    """
+    Group search result rows by media file, keeping only the best match per
+    file.
+    """
     best: dict[str, dict] = {}
     for r in rows:
         mp = r['media_path']
@@ -120,7 +123,10 @@ def search_text(
     top_k: int | None = None,
     media_type: str | None = None,
 ) -> list[dict]:
-    """Search for media matching a text query, combining visual and audio similarities."""
+    """
+    Search for media matching a text query, combining visual and audio
+    similarities.
+    """
     k = top_k or config.top_k
 
     vec = embedder.embed_texts([query])[0]
@@ -191,7 +197,8 @@ def search_clip(
         return []
     vecs = embedder.embed_images([f.image for f in frames])
     pooled_vec = np.mean(vecs, axis=0)
-    # Clip->clip: a candidate clip scores by its single best-matching moment (max).
+    # Clip->clip: a candidate clip scores by its single best-matching moment
+    # (max).
     agg: dict[str, dict] = {}
     for r in store.search(
         pooled_vec, top_k=k * _OVERFETCH, media_type='video'

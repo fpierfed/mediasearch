@@ -1,7 +1,7 @@
 import pytest
 from PIL import Image
 
-from mediasearch.frames import Frame, dedup, extract_frames, sample_video
+from mediasearch.frames import Frame, dedup, extract_frames
 
 
 def _frame(color, ts, idx):

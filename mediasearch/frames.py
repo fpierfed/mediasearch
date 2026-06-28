@@ -107,14 +107,16 @@ def extract_frames(path: Path, interval: float) -> list[Frame]:
 
 
 def dedup(frames: list[Frame], threshold: int) -> list[Frame]:
-    """Drop frames whose perceptual hash is within `threshold` hamming distance
+    """
+    Drop frames whose perceptual hash is within `threshold` hamming distance
     of the last KEPT frame. Lower threshold = stricter (keeps more).
 
     Uses colorhash (not dhash/average_hash): gradient/mean hashes are computed
-    from *relative* pixel differences and are therefore identically all-zero for
-    any solid-color frame, so they cannot tell distinct flat scenes apart
+    from *relative* pixel differences and are therefore identically all-zero
+    for any solid-color frame, so they cannot tell distinct flat scenes apart
     (e.g. a fully-red scene vs a fully-blue scene). colorhash is sensitive to
-    color content and distinguishes them."""
+    color content and distinguishes them.
+    """
     kept: list[Frame] = []
     last_hash = None
     for f in frames:

@@ -9,7 +9,8 @@ from .config import EMBED_DIM
 
 
 def _esc(value: str) -> str:
-    """Escape single quotes for LanceDB SQL-like filter strings.
+    """
+    Escape single quotes for LanceDB SQL-like filter strings.
 
     NOTE: This only doubles single quotes. It is safe for the current
     codebase because all interpolated values are filesystem paths or
@@ -34,7 +35,8 @@ def _esc(value: str) -> str:
 def _normalize_scores(
     rows: list[dict], fts: bool = False, fts_k: float = 10.0
 ) -> None:
-    """Mutate *rows* in-place, adding a ``"score"`` key to each dict.
+    """
+    Mutate *rows* in-place, adding a ``"score"`` key to each dict.
 
     For vector-distance results, score = 1.0 - _distance (cosine similarity).
     For full-text-search results, score = raw / (raw + fts_k) — a bounded
@@ -159,7 +161,9 @@ class Store:
         )
 
     def errors(self) -> list[dict]:
-        """Return a list of file rows that encountered errors during indexing."""
+        """
+        Return a list of file rows that encountered errors during indexing.
+        """
         rows = self.files.to_arrow().to_pylist()
         return [r for r in rows if r['status'] == 'error']
 
@@ -219,22 +223,31 @@ class Store:
 
     def search_transcripts_fts(self, query: str, top_k: int) -> list[dict]:
         """Search the transcripts table using full-text search (BM25)."""
-        # LanceDB full-text search directly accepts the string query and uses the FTS index
+        # LanceDB full-text search directly accepts the string query and uses
+        # the FTS index
         q = self.transcripts.search(query).limit(top_k)
         results = q.to_list()
         _normalize_scores(results, fts=True, fts_k=self.fts_score_k)
         return results
 
     def index_dim(self) -> int:
-        """The visual-embedding dimension the on-disk embeddings table was created with."""
+        """
+        The visual-embedding dimension the on-disk embeddings table was created
+        with.
+        """
         return self.emb.schema.field('vector').type.list_size
 
     def text_index_dim(self) -> int:
-        """The text-embedding dimension the on-disk transcripts table was created with."""
+        """
+        The text-embedding dimension the on-disk transcripts table was created
+        with.
+        """
         return self.transcripts.schema.field('vector').type.list_size
 
     def reset(self) -> None:
-        """Drop and recreate all three tables empty, using the current dimensions."""
+        """
+        Drop and recreate all three tables empty, using the current dimensions.
+        """
         names = self.db.list_tables()
         names = getattr(names, 'tables', names)
         for name in ('embeddings', 'files', 'transcripts'):
