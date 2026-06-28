@@ -9,6 +9,7 @@ from .config import DEFAULT_TEXT_MODEL, EMBED_DIM
 
 def l2_normalize(v: np.ndarray) -> np.ndarray:
     """Normalize vectors in an array to unit length (L2 norm)."""
+
     norms = np.linalg.norm(v, axis=1, keepdims=True)
     norms = np.where(norms == 0.0, 1.0, norms)
     return (v / norms).astype(np.float32)

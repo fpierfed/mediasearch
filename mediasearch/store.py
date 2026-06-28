@@ -4,6 +4,7 @@ from pathlib import Path
 import lancedb
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from .config import EMBED_DIM
 
@@ -34,20 +35,23 @@ def _esc(value: str) -> str:
 
 def _normalize_scores(
     rows: list[dict], fts: bool = False, fts_k: float = 10.0
-) -> None:
+) -> list[dict]:
     """
-    Mutate *rows* in-place, adding a ``"score"`` key to each dict.
+    Mutate *rows* in-place, adding a ``"score"`` key to each dict. Return the
+    mutated rows.
 
     For vector-distance results, score = 1.0 - _distance (cosine similarity).
     For full-text-search results, score = raw / (raw + fts_k) — a bounded
     normalisation that maps [0, +inf) → [0, 1) with half-saturation at *fts_k*.
     """
+
     for r in rows:
         if fts:
             raw = float(r.get('_score', 0.0))
             r['score'] = raw / (raw + fts_k)
         else:
             r['score'] = 1.0 - float(r.get('_distance', 0.0))
+    return rows
 
 
 class Store:
@@ -59,15 +63,24 @@ class Store:
         fts_score_k: float = 10.0,
     ) -> None:
         """Initialise the store, creating tables if they do not exist."""
+
         Path(index_path).mkdir(parents=True, exist_ok=True)
         self.dim = dim
         self.text_dim = text_dim
         self.fts_score_k = fts_score_k
         self.db = lancedb.connect(str(index_path))
+
+        # These will be set by self._ensure_tables
+        self.files = None
+        self.emb = None
+        self.transcripts = None
+
+        # Create the tables if they do not exist
         self._ensure_tables()
 
     def _emb_schema(self) -> pa.Schema:
-        """Return the schema for the embeddings table."""
+        """Schema for the embeddings table."""
+
         return pa.schema(
             [
                 pa.field('id', pa.string()),
@@ -80,7 +93,8 @@ class Store:
         )
 
     def _files_schema(self) -> pa.Schema:
-        """Return the schema for the files tracking table."""
+        """Schema for the files tracking table."""
+
         return pa.schema(
             [
                 pa.field('path', pa.string()),
@@ -95,7 +109,8 @@ class Store:
         )
 
     def _transcripts_schema(self) -> pa.Schema:
-        """Return the schema for the transcripts table."""
+        """Schema for the transcripts table."""
+
         return pa.schema(
             [
                 pa.field('id', pa.string()),
@@ -110,8 +125,10 @@ class Store:
 
     def _ensure_tables(self) -> None:
         """Ensure all required tables exist in the database."""
+
         names = self.db.list_tables()
         names = getattr(names, 'tables', names)
+
         if 'embeddings' not in names:
             self.db.create_table('embeddings', schema=self._emb_schema())
         if 'files' not in names:
@@ -123,12 +140,14 @@ class Store:
             self.db.open_table('transcripts').create_fts_index(
                 'text', replace=True
             )
+
         self.emb = self.db.open_table('embeddings')
         self.files = self.db.open_table('files')
         self.transcripts = self.db.open_table('transcripts')
 
     def manifest(self) -> dict:
         """Return a mapping of file paths to their tracking status rows."""
+
         rows = self.files.to_arrow().to_pylist()
         return {r['path']: r for r in rows}
 
@@ -143,7 +162,12 @@ class Store:
         n_vectors: int = 0,
         error_msg: str | None = None,
     ) -> None:
-        """Upsert a file's status in the tracking table."""
+        """
+        Upsert a file's status in the tracking table.
+
+        It does a delete and an add.
+        """
+
         self.files.delete(f"path = '{_esc(path)}'")
         self.files.add(
             [
@@ -164,31 +188,36 @@ class Store:
         """
         Return a list of file rows that encountered errors during indexing.
         """
+
         rows = self.files.to_arrow().to_pylist()
         return [r for r in rows if r['status'] == 'error']
 
     def add_embeddings(self, rows: list[dict]) -> None:
         """Add rows to the visual embeddings table."""
-        if rows:
-            self.emb.add(rows)
+
+        if not rows:
+            return
+        self.emb.add(rows)
 
     def add_transcripts(self, rows: list[dict]) -> None:
         """Add rows to the audio transcripts table."""
-        if rows:
-            self.transcripts.add(rows)
+
+        if not rows:
+            return
+        self.transcripts.add(rows)
 
     def delete_file(self, path: str) -> None:
         """Remove all data associated with a file from all tables."""
-        esc = _esc(path)
-        self.emb.delete(f"media_path = '{esc}'")
-        self.transcripts.delete(f"media_path = '{esc}'")
-        self.files.delete(f"path = '{esc}'")
+
+        path = _esc(path)
+        self.emb.delete(f"media_path = '{path}'")
+        self.transcripts.delete(f"media_path = '{path}'")
+        self.files.delete(f"path = '{path}'")
 
     def count_vectors(self, media_path: str) -> int:
         """Return the number of visual embeddings stored for a given file."""
-        return int(
-            self.emb.count_rows(filter=f"media_path = '{_esc(media_path)}'")
-        )
+
+        return self.emb.count_rows(filter=f"media_path = '{_esc(media_path)}'")
 
     def search(
         self,
@@ -197,6 +226,7 @@ class Store:
         media_type: str | None = None,
     ) -> list[dict]:
         """Search the visual embeddings table for the closest vectors."""
+
         q = (
             self.emb.search(np.asarray(vector, dtype=np.float32))
             .metric('cosine')
@@ -204,31 +234,31 @@ class Store:
         )
         if media_type:
             q = q.where(f"media_type = '{_esc(media_type)}'")
+
         results = q.to_list()
-        _normalize_scores(results)
-        return results
+        return _normalize_scores(results)
 
     def search_transcripts_vector(
         self, vector: list[float] | np.ndarray, top_k: int
     ) -> list[dict]:
         """Search the transcripts table using semantic vector similarity."""
+
         q = (
             self.transcripts.search(np.asarray(vector, dtype=np.float32))
             .metric('cosine')
             .limit(top_k)
         )
         results = q.to_list()
-        _normalize_scores(results)
-        return results
+        return _normalize_scores(results)
 
     def search_transcripts_fts(self, query: str, top_k: int) -> list[dict]:
         """Search the transcripts table using full-text search (BM25)."""
+
         # LanceDB full-text search directly accepts the string query and uses
         # the FTS index
         q = self.transcripts.search(query).limit(top_k)
         results = q.to_list()
-        _normalize_scores(results, fts=True, fts_k=self.fts_score_k)
-        return results
+        return _normalize_scores(results, fts=True, fts_k=self.fts_score_k)
 
     def index_dim(self) -> int:
         """
@@ -257,7 +287,6 @@ class Store:
 
     def stats(self) -> dict:
         """Return summary statistics about the indexed files and vectors."""
-        import pyarrow.compute as pc
 
         t = self.files.to_arrow()
         statuses = t.column('status')

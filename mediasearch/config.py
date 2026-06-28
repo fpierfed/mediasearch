@@ -48,6 +48,7 @@ VIDEO_EXTS = {'.mp4', '.mov', '.m4v', '.mkv', '.avi', '.webm'}
 
 def classify_ext(path: Path) -> str | None:
     """Classify a file by extension as 'image' or 'video'."""
+
     ext = path.suffix.lower()
     if ext in IMAGE_EXTS:
         return 'image'
