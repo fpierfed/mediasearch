@@ -113,7 +113,7 @@ def test_model_load_failure_is_friendly(tmp_path, make_image, monkeypatch):
     )
 
 
-BASE_MODEL = 'mlx-community/siglip2-base-patch16-384'
+BASE_MODEL = 'google/siglip2-so400m-patch16-256'
 
 
 def test_bad_model_is_rejected(tmp_path, monkeypatch):
@@ -138,19 +138,19 @@ def test_dim_mismatch_without_reindex_errors(
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    # build a 1152-d index with the default model
+    # build a 768-d index with the default model
     assert (
         runner.invoke(
             app, ['index', str(lib), '--index-path', str(idx)]
         ).exit_code
         == 0
     )
-    # now query/index with the 768-d base model, no reindex -> friendly error
+    # now query/index with the 1152-d model, no reindex -> friendly error
     r = runner.invoke(
         app, ['search', 'q', '--index-path', str(idx), '--model', BASE_MODEL]
     )
     assert r.exit_code != 0
-    assert 'reindex' in r.output.lower() or '768' in r.output
+    assert 'reindex' in r.output.lower() or '1152' in r.output
 
 
 def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
@@ -168,7 +168,7 @@ def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
         ).exit_code
         == 0
     )
-    # rebuild at 768 with the base model
+    # rebuild at 1152 with the SO400M model
     r = runner.invoke(
         app,
         [

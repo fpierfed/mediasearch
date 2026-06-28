@@ -14,7 +14,7 @@ def _frame(color, ts, idx):
 def test_dedup_collapses_identical_frames():
     """Test that dedup collapses identical consecutive frames."""
     frames = [_frame((255, 255, 255), float(i), i) for i in range(5)]
-    kept = dedup(frames, threshold=5)
+    kept = list(dedup(frames, threshold=5))
     assert len(kept) == 1
     assert kept[0].timestamp == 0.0  # keeps the first of a run
 
@@ -26,13 +26,13 @@ def test_dedup_keeps_distinct_frames():
         _frame((0, 0, 0), 1.0, 1),
         _frame((255, 255, 255), 2.0, 2),
     ]
-    kept = dedup(frames, threshold=5)
+    kept = list(dedup(frames, threshold=5))
     assert len(kept) == 3
 
 
 def test_extract_frames_returns_timestamps(sample_video):
     """Test that extract_frames returns monotonically increasing timestamps."""
-    frames = extract_frames(sample_video, interval=2.0)
+    frames = list(extract_frames(sample_video, interval=2.0))
     assert len(frames) >= 2
     ts = [f.timestamp for f in frames]
     assert ts == sorted(ts)  # monotonically increasing
@@ -46,8 +46,29 @@ def test_sample_video_dedups_two_scenes(sample_video):
     """
     from mediasearch.frames import sample_video as sample_fn
 
-    kept = sample_fn(sample_video, interval=2.0, dedup_threshold=5)
+    kept = list(sample_fn(sample_video, interval=2.0, dedup_threshold=5))
     assert len(kept) >= 2
+
+
+def test_dedup_is_lazy():
+    """dedup does not consume more input than needed for first yield."""
+    consumed = []
+
+    def _track(iterable):
+        for item in iterable:
+            consumed.append(item)
+            yield item
+
+    frames = [
+        _frame((255, 255, 255), 0.0, 0),
+        _frame((0, 0, 0), 1.0, 1),  # distinct — will be yielded
+    ]
+    gen = dedup(_track(frames), threshold=5)
+    first = next(gen)
+    assert first.timestamp == 0.0
+    # At this point only the first frame has been consumed — dedup yields
+    # the first frame immediately (last_hash is None) without peeking ahead.
+    assert len(consumed) == 1
 
 
 def test_cgimage_to_pil_non_32bpp(monkeypatch):
@@ -88,7 +109,7 @@ def test_extract_frames_nil_url(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mf, 'NSURL', _NilNSURL)
     with pytest.raises(ValueError, match='NSURL'):
-        mf.extract_frames(tmp_path / 'x.mp4', interval=2.0)
+        list(mf.extract_frames(tmp_path / 'x.mp4', interval=2.0))
 
 
 def test_extract_frames_nil_asset(sample_video, monkeypatch):
@@ -102,7 +123,7 @@ def test_extract_frames_nil_asset(sample_video, monkeypatch):
 
     monkeypatch.setattr(mf, 'AVURLAsset', _NilAsset)
     with pytest.raises(ValueError, match='asset'):
-        mf.extract_frames(sample_video, interval=2.0)
+        list(mf.extract_frames(sample_video, interval=2.0))
 
 
 def test_extract_frames_nil_generator(sample_video, monkeypatch):
@@ -116,7 +137,7 @@ def test_extract_frames_nil_generator(sample_video, monkeypatch):
 
     monkeypatch.setattr(mf, 'AVAssetImageGenerator', _NilGenerator)
     with pytest.raises(ValueError, match='image generator'):
-        mf.extract_frames(sample_video, interval=2.0)
+        list(mf.extract_frames(sample_video, interval=2.0))
 
 
 def test_extract_frames_handles_frame_error(sample_video, monkeypatch):
@@ -127,6 +148,6 @@ def test_extract_frames_handles_frame_error(sample_video, monkeypatch):
         raise RuntimeError('simulated decode failure')
 
     monkeypatch.setattr(mf, '_cgimage_to_pil', boom)
-    frames = mf.extract_frames(sample_video, interval=2.0)
+    frames = list(mf.extract_frames(sample_video, interval=2.0))
     # Every frame decode failed, so we get zero frames back — but no crash.
     assert frames == []

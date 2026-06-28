@@ -10,7 +10,7 @@ from PIL import Image
 
 from .config import DEFAULT_AUDIO_MODEL, Config
 from .embedder import Embedder
-from .frames import sample_video
+from .frames import Frame, sample_video
 from .store import Store
 from .walker import MediaFile, walk
 
@@ -57,42 +57,79 @@ def _process_audio(
         return []
 
 
-def _process(mf: MediaFile, config: Config, embedder: Embedder) -> list[dict]:
+def _process(
+    mf: MediaFile, config: Config, embedder: Embedder, store: Store
+) -> int:
     """
-    Process a media file (image or video) and return its visual embedding rows.
+    Process a media file (image or video), write embeddings to *store*
+    incrementally, and return the total number of embedded rows.
+
+    For videos, frames are extracted, deduplicated, and embedded in batches
+    of config.batch_size so that peak memory is bounded regardless of video
+    length.
     """
     if mf.media_type == 'image':
         with Image.open(mf.path) as im:
             img = im.convert('RGB')
         vec = embedder.embed_images([img])[0]
-        return [
+        store.add_embeddings(
+            [
+                {
+                    'id': uuid.uuid4().hex,
+                    'media_path': str(mf.path),
+                    'media_type': 'image',
+                    'vector': list(vec),
+                    'timestamp': 0.0,
+                    'frame_idx': 0,
+                }
+            ]
+        )
+        return 1
+
+    # Video: stream frames, embed in batches, write incrementally
+    frames_iter = sample_video(
+        mf.path, config.frame_interval, config.dedup_threshold
+    )
+    batch: list[Frame] = []
+    total = 0
+
+    for frame in frames_iter:
+        batch.append(frame)
+        if len(batch) >= config.batch_size:
+            vecs = embedder.embed_images([f.image for f in batch])
+            rows = [
+                {
+                    'id': uuid.uuid4().hex,
+                    'media_path': str(mf.path),
+                    'media_type': 'video',
+                    'vector': list(v),
+                    'timestamp': float(f.timestamp),
+                    'frame_idx': int(f.frame_idx),
+                }
+                for f, v in zip(batch, vecs)
+            ]
+            store.add_embeddings(rows)
+            total += len(rows)
+            batch.clear()
+
+    # Flush remaining partial batch
+    if batch:
+        vecs = embedder.embed_images([f.image for f in batch])
+        rows = [
             {
                 'id': uuid.uuid4().hex,
                 'media_path': str(mf.path),
-                'media_type': 'image',
-                'vector': list(vec),
-                'timestamp': 0.0,
-                'frame_idx': 0,
+                'media_type': 'video',
+                'vector': list(v),
+                'timestamp': float(f.timestamp),
+                'frame_idx': int(f.frame_idx),
             }
+            for f, v in zip(batch, vecs)
         ]
+        store.add_embeddings(rows)
+        total += len(rows)
 
-    frames = sample_video(
-        mf.path, config.frame_interval, config.dedup_threshold
-    )
-    if not frames:
-        return []
-    vecs = embedder.embed_images([f.image for f in frames])
-    return [
-        {
-            'id': uuid.uuid4().hex,
-            'media_path': str(mf.path),
-            'media_type': 'video',
-            'vector': list(v),
-            'timestamp': float(f.timestamp),
-            'frame_idx': int(f.frame_idx),
-        }
-        for f, v in zip(frames, vecs)
-    ]
+    return total
 
 
 def _unchanged(prev: dict, mf: MediaFile) -> bool:
@@ -148,15 +185,12 @@ def index(
             status='pending',
         )
         try:
-            visual_rows = _process(mf, config, embedder)
-            transcript_rows = []
+            n_vectors = _process(mf, config, embedder, store)
             if mf.media_type == 'video':
                 transcript_rows = _process_audio(
                     mf, text_embedder, config.audio_model
                 )
-
-            store.add_embeddings(visual_rows)
-            store.add_transcripts(transcript_rows)
+                store.add_transcripts(transcript_rows)
 
             store.set_file(
                 path=key,
@@ -164,7 +198,7 @@ def index(
                 size=mf.size,
                 media_type=mf.media_type,
                 status='done',
-                n_vectors=len(visual_rows),
+                n_vectors=n_vectors,
             )
         except Exception as exc:  # noqa: BLE001 - one bad file must not kill the run
             # Clean up any partially-written rows to avoid orphaned data

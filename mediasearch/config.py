@@ -11,8 +11,8 @@ MODEL_DIMS = {
     'google/siglip2-large-patch16-384': 1024,
     'google/siglip2-large-patch16-512': 1024,
     # SigLIP 2 base / medium (~86M params, 768-dim)
-    'mlx-community/siglip2-base-patch16-384': 768,
-    'mlx-community/siglip2-base-patch16-256': 768,
+    'google/siglip2-base-patch16-384': 768,
+    'google/siglip2-base-patch16-256': 768,
     'google/siglip2-base-patch16-512': 768,
     'mlx-community/siglip2-base-patch16-224-8bit': 768,  # 8-bit quantised
     # SigLIP 1 legacy (pre-converted by mlx-community)
@@ -21,7 +21,7 @@ MODEL_DIMS = {
     'mlx-community/siglip-large-patch16-384': 1024,
     'mlx-community/siglip-large-patch16-384-4bit': 1024,  # 4-bit quantised
 }
-DEFAULT_MODEL = 'mlx-community/siglip2-so400m-patch16-384'
+DEFAULT_MODEL = 'google/siglip2-base-patch16-256'
 DEFAULT_TEXT_MODEL = 'mlx-community/multilingual-e5-base-mlx'
 DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-large-v3-turbo'
 

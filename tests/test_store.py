@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from mediasearch.config import EMBED_DIM
 from mediasearch.store import Store, _esc
 
 
@@ -16,7 +17,7 @@ def _row(media_path, vec, media_type='image', ts=0.0, idx=0):
     }
 
 
-def _unit(seed, dim=1152):
+def _unit(seed, dim=EMBED_DIM):
     """Helper function to create a deterministic random unit vector."""
     rng = np.random.default_rng(seed)
     v = rng.standard_normal(dim).astype(np.float32)
@@ -157,7 +158,7 @@ def test_reopen_existing_index_does_not_recreate(tmp_path):
 def test_index_dim_reports_schema(tmp_path):
     """Test that index_dim matches the stored schema's dimension."""
     assert Store(tmp_path / 'idx', dim=768).index_dim() == 768
-    assert Store(tmp_path / 'idx2').index_dim() == 1152  # default EMBED_DIM
+    assert Store(tmp_path / 'idx2').index_dim() == 768  # default EMBED_DIM
 
 
 def test_reset_recreates_tables_at_new_dim(tmp_path):

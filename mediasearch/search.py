@@ -187,8 +187,10 @@ def search_clip(
     """
     k = top_k or config.top_k
     try:
-        frames = sample_video(
-            Path(path), config.frame_interval, config.dedup_threshold
+        frames = list(
+            sample_video(
+                Path(path), config.frame_interval, config.dedup_threshold
+            )
         )
     except Exception:
         logger.exception('Failed to extract frames from %s', path)

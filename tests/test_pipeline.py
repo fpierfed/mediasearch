@@ -178,21 +178,24 @@ def test_process_audio_failure(tmp_path, sample_video, monkeypatch):
 
 
 def test_process_no_frames_for_video(tmp_path, monkeypatch):
-    """_process returns [] when a video yields no frames."""
+    """_process returns 0 when a video yields no frames."""
     from mediasearch.pipeline import _process
     from mediasearch.config import Config
     from mediasearch.embedder import FakeEmbedder
+    from mediasearch.store import Store
     from mediasearch.walker import MediaFile
 
-    monkeypatch.setattr(
-        'mediasearch.pipeline.sample_video', lambda *a, **kw: []
-    )
+    def _empty_iter(*a, **kw):
+        yield from ()  # empty generator
+
+    monkeypatch.setattr('mediasearch.pipeline.sample_video', _empty_iter)
 
     mf = MediaFile(
         path=tmp_path / 'empty.mp4', mtime=0.0, size=0, media_type='video'
     )
-    rows = _process(mf, Config(), FakeEmbedder())
-    assert rows == []
+    store = Store(tmp_path / 'idx')
+    n = _process(mf, Config(), FakeEmbedder(), store)
+    assert n == 0
 
 
 def test_reindex_skip_calls_progress(tmp_path, make_image):
@@ -224,3 +227,38 @@ def test_reindex_skip_calls_progress(tmp_path, make_image):
     )
 
     assert len(skipped) >= 1  # the unchanged file triggered progress
+
+
+def test_process_video_writes_incrementally(tmp_path, sample_video):
+    """_process writes video embeddings in batches, not all at once."""
+    from mediasearch.pipeline import _process
+    from mediasearch.config import Config
+    from mediasearch.embedder import FakeEmbedder
+    from mediasearch.store import Store
+    from mediasearch.walker import MediaFile
+
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    vid = lib / 'clip.mp4'
+    vid.write_bytes(sample_video.read_bytes())
+
+    mf = MediaFile(path=vid, mtime=vid.stat().st_mtime, size=vid.stat().st_size, media_type='video')
+    config = Config()
+    config.batch_size = 1  # single-frame batches to force multiple writes
+    store = Store(tmp_path / 'idx')
+    embedder = FakeEmbedder()
+
+    # Track how many times add_embeddings is called
+    calls = []
+    orig_add = store.add_embeddings
+
+    def _track(rows):
+        calls.append(len(rows))
+        return orig_add(rows)
+
+    store.add_embeddings = _track
+
+    n = _process(mf, config, embedder, store)
+    assert n > 0  # some frames embedded
+    assert n == sum(calls)  # total rows = sum of batch sizes
+    assert len(calls) >= 2  # at least 2 batches written with batch_size=1

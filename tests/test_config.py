@@ -16,9 +16,9 @@ def test_defaults():
     assert c.dedup_threshold == 5
     assert c.batch_size == 16
     assert c.top_k == 20
-    assert c.model == 'mlx-community/siglip2-so400m-patch16-384'
+    assert c.model == 'google/siglip2-base-patch16-256'
     assert c.index_path == Path.home() / '.mediasearch' / 'index'
-    assert EMBED_DIM == 1152
+    assert EMBED_DIM == 768
 
 
 def test_overrides():
@@ -42,16 +42,16 @@ def test_embed_dim_property_and_resolver():
     """Test that embed_dim property matches the dimension for known models."""
     from mediasearch.config import Config, embed_dim_for
 
-    assert Config().embed_dim == 1152
+    assert Config().embed_dim == 768
     # 768-dim (base/medium)
     assert (
-        Config(model='mlx-community/siglip2-base-patch16-384').embed_dim == 768
+        Config(model='google/siglip2-base-patch16-384').embed_dim == 768
     )
-    assert embed_dim_for('mlx-community/siglip2-base-patch16-384') == 768
+    assert embed_dim_for('google/siglip2-base-patch16-384') == 768
     assert (
-        Config(model='mlx-community/siglip2-base-patch16-256').embed_dim == 768
+        Config(model='google/siglip2-base-patch16-256').embed_dim == 768
     )
-    assert embed_dim_for('mlx-community/siglip2-base-patch16-256') == 768
+    assert embed_dim_for('google/siglip2-base-patch16-256') == 768
     # 1024-dim (large)
     assert Config(model='google/siglip2-large-patch16-384').embed_dim == 1024
     assert embed_dim_for('google/siglip2-large-patch16-384') == 1024

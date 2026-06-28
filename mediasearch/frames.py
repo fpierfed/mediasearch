@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import imagehash
 from PIL import Image
@@ -53,10 +53,8 @@ def _cgimage_to_pil(cg_image: Any) -> Image.Image:
     return img.convert('RGB')
 
 
-def extract_frames(path: Path, interval: float) -> list[Frame]:
+def extract_frames(path: Path, interval: float) -> Iterator[Frame]:
     """Decode sequentially using AVFoundation for hardware acceleration."""
-    out: list[Frame] = []
-
     url = NSURL.fileURLWithPath_(str(path))
     if not url:
         raise ValueError(f'Failed to create NSURL from path: {path}')
@@ -92,8 +90,8 @@ def extract_frames(path: Path, interval: float) -> list[Frame]:
                 )
                 if cg_image:
                     pil_image = _cgimage_to_pil(cg_image)
-                    out.append(
-                        Frame(image=pil_image, timestamp=next_t, frame_idx=idx)
+                    yield Frame(
+                        image=pil_image, timestamp=next_t, frame_idx=idx
                     )
             except Exception:
                 logger.exception(
@@ -103,10 +101,8 @@ def extract_frames(path: Path, interval: float) -> list[Frame]:
         idx += 1
         next_t += interval
 
-    return out
 
-
-def dedup(frames: list[Frame], threshold: int) -> list[Frame]:
+def dedup(frames: Iterator[Frame], threshold: int) -> Iterator[Frame]:
     """
     Drop frames whose perceptual hash is within `threshold` hamming distance
     of the last KEPT frame. Lower threshold = stricter (keeps more).
@@ -117,18 +113,16 @@ def dedup(frames: list[Frame], threshold: int) -> list[Frame]:
     (e.g. a fully-red scene vs a fully-blue scene). colorhash is sensitive to
     color content and distinguishes them.
     """
-    kept: list[Frame] = []
     last_hash = None
     for f in frames:
         h = imagehash.colorhash(f.image)
         if last_hash is None or (h - last_hash) > threshold:
-            kept.append(f)
+            yield f
             last_hash = h
-    return kept
 
 
 def sample_video(
     path: Path, interval: float, dedup_threshold: int
-) -> list[Frame]:
+) -> Iterator[Frame]:
     """Extract and deduplicate frames from a video file."""
     return dedup(extract_frames(path, interval), dedup_threshold)
