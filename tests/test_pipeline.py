@@ -5,7 +5,9 @@ from mediasearch.store import Store
 
 
 def _index(tmp_path, roots):
-    """Helper function to create a config, store, and fake embedder, then run indexing."""
+    """Helper function to create a config, store, and fake embedder,
+    then run indexing.
+    """
     config = Config()
     store = Store(tmp_path / 'idx')
     embedder = FakeEmbedder()
@@ -29,7 +31,9 @@ def test_index_images_and_video(tmp_path, make_image, sample_video):
 
 
 def test_reindex_skips_unchanged(tmp_path, make_image):
-    """Test that indexing an already indexed and unchanged file skips processing."""
+    """Test that indexing an already indexed and unchanged file skips
+    processing.
+    """
     lib = tmp_path / 'lib'
     lib.mkdir()
     make_image(lib / 'a.png')
@@ -73,7 +77,9 @@ def test_resume_reprocesses_pending(tmp_path, make_image):
 
 
 def test_bad_video_is_marked_error_and_run_continues(tmp_path, make_image):
-    """Test that a corrupt video is marked with an error status but doesn't halt indexing."""
+    """Test that a corrupt video is marked with an error status but
+    doesn't halt indexing.
+    """
     lib = tmp_path / 'lib'
     lib.mkdir()
     make_image(lib / 'good.png')
@@ -86,7 +92,9 @@ def test_bad_video_is_marked_error_and_run_continues(tmp_path, make_image):
 
 
 def test_process_audio_success(tmp_path, sample_video, monkeypatch):
-    """Test that _process_audio correctly extracts and formats audio transcripts."""
+    """Test that _process_audio correctly extracts and formats audio
+    transcripts.
+    """
     import mlx_whisper
     from mediasearch.config import DEFAULT_AUDIO_MODEL
     from mediasearch.pipeline import _process_audio
@@ -203,7 +211,8 @@ def test_reindex_skip_calls_progress(tmp_path, make_image):
     # First run: index the file
     index(config, FakeEmbedder(), FakeEmbedder(), store, [lib])
 
-    # Second run: everything unchanged — progress should fire for each file walked
+    # Second run: everything unchanged — progress should fire for each
+    # file walked
     skipped = []
     index(
         config,

@@ -41,7 +41,9 @@ def test_extract_frames_returns_timestamps(sample_video):
 
 
 def test_sample_video_dedups_two_scenes(sample_video):
-    """Test that sample_video successfully extracts and deduplicates frames from a multi-scene video."""
+    """Test that sample_video successfully extracts and deduplicates
+    frames from a multi-scene video.
+    """
     from mediasearch.frames import sample_video as sample_fn
 
     kept = sample_fn(sample_video, interval=2.0, dedup_threshold=5)

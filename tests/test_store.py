@@ -24,7 +24,9 @@ def _unit(seed, dim=1152):
 
 
 def test_set_and_read_manifest(tmp_path):
-    """Test that writing a file status allows retrieving it from the manifest."""
+    """Test that writing a file status allows retrieving it from the
+    manifest.
+    """
     s = Store(tmp_path / 'idx')
     s.set_file(
         path='/a.png',
@@ -129,7 +131,9 @@ def test_stats(tmp_path):
 
 
 def test_reopen_existing_index_does_not_recreate(tmp_path):
-    """Test that opening an existing index does not attempt to recreate its tables."""
+    """Test that opening an existing index does not attempt to recreate
+    its tables.
+    """
     # Regression: lancedb list_tables() returns a response object, not a list;
     # reopening an existing index must NOT try to recreate tables.
     path = tmp_path / 'idx'
@@ -157,7 +161,9 @@ def test_index_dim_reports_schema(tmp_path):
 
 
 def test_reset_recreates_tables_at_new_dim(tmp_path):
-    """Test that reset wipes the database and recreates tables with updated dimensions."""
+    """Test that reset wipes the database and recreates tables with
+    updated dimensions.
+    """
     path = tmp_path / 'idx'
     s1 = Store(path, dim=1152)
     s1.add_embeddings([_row('/a.png', _unit(1, dim=1152))])
@@ -213,8 +219,9 @@ def test_transcripts_operations(tmp_path):
     f_hits_empty = s.search_transcripts_fts('hello', top_k=1)
     assert len(f_hits_empty) == 0
 
-    # check that transcripts are gone from stats if we add stats for transcripts,
-    # but the task doesn't explicitly require updating stats() for transcripts, so this is enough.
+    # check that transcripts are gone from stats if we add stats for
+    # transcripts, but the task doesn't explicitly require updating
+    # stats() for transcripts, so this is enough.
 
 
 def test_esc_rejects_control_characters():

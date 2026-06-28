@@ -33,7 +33,9 @@ def _library(tmp_path, make_image, sample_video):
 def test_search_image_returns_exact_match_first(
     tmp_path, make_image, sample_video
 ):
-    """Test that an image query returns the identical image as its best result."""
+    """Test that an image query returns the identical image as its
+    best result.
+    """
     config, store, lib = _library(tmp_path, make_image, sample_video)
     results = search_image(lib / 'a.png', config, FakeEmbedder(), store)
     assert results[0]['path'] == str(lib / 'a.png')
@@ -89,8 +91,11 @@ def test_search_text_runs_and_is_structured(
 
 
 def test_search_clip_empty_or_corrupt_clip_returns_empty(tmp_path, make_image):
-    """Test that search_clip returns an empty list for a bad video file instead of raising."""
-    # A file with a video extension but no decodable frames must not crash search_clip.
+    """Test that search_clip returns an empty list for a bad video file
+    instead of raising.
+    """
+    # A file with a video extension but no decodable frames must not
+    # crash search_clip.
     lib = tmp_path / 'lib'
     lib.mkdir()
     make_image(lib / 'a.png')
@@ -158,7 +163,9 @@ def test_search_text_aggregates_scores_and_modalities():
 
 
 def test_search_clip_no_frames(tmp_path, make_image, monkeypatch):
-    """search_clip returns [] when sample_video yields no frames (but doesn't raise)."""
+    """search_clip returns [] when sample_video yields no frames (but
+    doesn't raise).
+    """
     from mediasearch.config import Config
     from mediasearch.embedder import FakeEmbedder
     from mediasearch.store import Store

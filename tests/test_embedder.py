@@ -21,7 +21,9 @@ def test_l2_normalize_handles_zero_vector():
 
 
 def test_fake_text_is_deterministic_and_normalized():
-    """Test that FakeEmbedder produces deterministic and normalized text embeddings."""
+    """Test that FakeEmbedder produces deterministic and normalized
+    text embeddings.
+    """
     e = FakeEmbedder()
     a = e.embed_texts(['a cat', 'a dog'])
     b = e.embed_texts(['a cat', 'a dog'])
@@ -32,7 +34,9 @@ def test_fake_text_is_deterministic_and_normalized():
 
 
 def test_fake_same_image_same_vector():
-    """Test that FakeEmbedder produces the same embedding for identical images."""
+    """Test that FakeEmbedder produces the same embedding for
+    identical images.
+    """
     e = FakeEmbedder()
     img = Image.new('RGB', (8, 8), (10, 20, 30))
     v1 = e.embed_images([img])
@@ -41,7 +45,9 @@ def test_fake_same_image_same_vector():
 
 
 def test_mlx_text_embedder(monkeypatch):
-    """Test that MLXTextEmbedder initializes and produces correct text embeddings."""
+    """Test that MLXTextEmbedder initializes and produces correct
+    text embeddings.
+    """
     import sys
     from unittest.mock import MagicMock
     from mediasearch.embedder import MLXTextEmbedder
@@ -75,7 +81,9 @@ def test_mlx_text_embedder(monkeypatch):
 
 
 def test_mlx_text_embedder_dimension_mismatch(monkeypatch):
-    """Test that MLXTextEmbedder raises ValueError when output dimension mismatches expected."""
+    """Test that MLXTextEmbedder raises ValueError when output dimension
+    mismatches expected.
+    """
     import sys
     import pytest
     from unittest.mock import MagicMock
@@ -161,13 +169,14 @@ def test_mlx_text_embedder_embed_images_raises(monkeypatch):
 
 
 def test_mlx_siglip_smoke(monkeypatch):
-    """Smoke-test MLXSigLIPEmbedder text and image embedding when MLX is available.
+    """Smoke-test MLXSigLIPEmbedder text and image embedding when MLX
+    is available.
 
     Skipped on machines without a working MLX install (e.g. CI, Intel Macs).
     """
 
     # Only run when MLX is actually importable and functional.
-    mlx_avail = pytest.importorskip(
+    pytest.importorskip(
         'mlx_embeddings', reason='mlx-embeddings not installed'
     )
     # Check for Metal / Apple Silicon — mlx needs it.
@@ -204,7 +213,9 @@ def test_mlx_siglip_smoke(monkeypatch):
 
 
 def test_mlx_siglip_dimension_mismatch(monkeypatch):
-    """MLXSigLIPEmbedder.embed_texts raises ValueError on dimension mismatch."""
+    """MLXSigLIPEmbedder.embed_texts raises ValueError on dimension
+    mismatch.
+    """
     import sys
     from unittest.mock import MagicMock
     from mediasearch.embedder import MLXSigLIPEmbedder

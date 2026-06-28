@@ -43,7 +43,9 @@ def test_search_json_output(tmp_path, make_image, monkeypatch):
 
 
 def test_similar_image(tmp_path, make_image, monkeypatch):
-    """Test that similar-image command finds and returns the closest image match."""
+    """Test that similar-image command finds and returns the closest
+    image match.
+    """
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -85,8 +87,11 @@ def test_invalid_type_is_rejected(tmp_path, make_image, monkeypatch):
 
 
 def test_model_load_failure_is_friendly(tmp_path, make_image, monkeypatch):
-    """Test that failing to load a real model provides a user-friendly error message."""
-    # No fake-embedder env -> real branch; force the real embedder to fail to load.
+    """Test that failing to load a real model provides a user-friendly
+    error message.
+    """
+    # No fake-embedder env -> real branch; force the real embedder to
+    # fail to load.
     monkeypatch.delenv('MEDIASEARCH_FAKE_EMBEDDER', raising=False)
     import mediasearch.embedder as emb
 
@@ -100,7 +105,8 @@ def test_model_load_failure_is_friendly(tmp_path, make_image, monkeypatch):
     idx = tmp_path / 'idx'
     r = runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
     assert r.exit_code != 0
-    # friendly: mentions the model or Apple Silicon, and does NOT dump a raw traceback
+    # friendly: mentions the model or Apple Silicon, and does NOT dump
+    # a raw traceback
     assert 'Traceback' not in r.output
     assert ('model' in r.output.lower()) or (
         'apple silicon' in r.output.lower()
@@ -124,7 +130,9 @@ def test_bad_model_is_rejected(tmp_path, monkeypatch):
 def test_dim_mismatch_without_reindex_errors(
     tmp_path, make_image, monkeypatch
 ):
-    """Test that running with a mismatched model dimension prompts the user to reindex."""
+    """Test that running with a mismatched model dimension prompts the
+    user to reindex.
+    """
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -146,7 +154,9 @@ def test_dim_mismatch_without_reindex_errors(
 
 
 def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
-    """Test that passing --reindex allows rebuilding the index with a new model dimension."""
+    """Test that passing --reindex allows rebuilding the index with a
+    new model dimension.
+    """
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -172,7 +182,8 @@ def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
         ],
     )
     assert r.exit_code == 0, r.output
-    # now searching with the base model works (dims match) and returns the image
+    # now searching with the base model works (dims match) and returns
+    # the image
     r2 = runner.invoke(
         app,
         [
@@ -219,7 +230,9 @@ def test_similar_clip(tmp_path, make_image, sample_video, monkeypatch):
 
 
 def test_search_plain_text_output(tmp_path, make_image, monkeypatch):
-    """search without --json emits plain-text formatted output with modality."""
+    """search without --json emits plain-text formatted output with
+    modality.
+    """
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -265,7 +278,9 @@ def test_status_shows_errors(tmp_path, make_image, monkeypatch):
 
 
 def test_text_dim_mismatch_errors(tmp_path, monkeypatch):
-    """_guard_text_dim raises when on-disk dim differs from configured text_dim."""
+    """_guard_text_dim raises when on-disk dim differs from configured
+    text_dim.
+    """
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     import typer
     from mediasearch.cli import _guard_text_dim
@@ -279,7 +294,9 @@ def test_text_dim_mismatch_errors(tmp_path, monkeypatch):
 
 
 def test_build_embedder_text_model_success(tmp_path, monkeypatch):
-    """_build_embedder with text_model returns MLXTextEmbedder (no FAKE_EMBEDDER)."""
+    """_build_embedder with text_model returns MLXTextEmbedder (no
+    FAKE_EMBEDDER).
+    """
     monkeypatch.delenv('MEDIASEARCH_FAKE_EMBEDDER', raising=False)
     import mediasearch.embedder as emb
     from mediasearch.cli import _build_embedder

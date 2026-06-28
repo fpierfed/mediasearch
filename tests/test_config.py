@@ -29,7 +29,9 @@ def test_overrides():
 
 
 def test_classify_ext():
-    """Test that classify_ext correctly identifies image and video extensions."""
+    """Test that classify_ext correctly identifies image and video
+    extensions.
+    """
     assert classify_ext(Path('a.JPG')) == 'image'
     assert classify_ext(Path('b.mov')) == 'video'
     assert classify_ext(Path('c.txt')) is None
