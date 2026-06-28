@@ -9,7 +9,7 @@ import typer
 
 from . import pipeline, search as search_mod
 from .config import Config, DEFAULT_MODEL, DEFAULT_TEXT_MODEL, TEXT_EMBED_DIM
-from .embedder import Embedder
+from . import embedder as emb
 from .store import Store
 
 app = typer.Typer(add_completion=False, help='Local semantic media search.')
@@ -43,22 +43,21 @@ def _open_store(config: Config) -> Store:
 
 def _build_embedder(
     config: Config, text_model: Optional[str] = None
-) -> Embedder:
+) -> emb.Embedder:
     """
     Build and return an embedder for images or text, using a fake if requested.
     """
     if os.environ.get('MEDIASEARCH_FAKE_EMBEDDER') == '1':
-        from .embedder import FakeEmbedder
-
-        return FakeEmbedder(dim=TEXT_EMBED_DIM if text_model else config.embed_dim)
-    from . import embedder as _emb
+        return emb.FakeEmbedder(
+            dim=TEXT_EMBED_DIM if text_model else config.embed_dim
+        )
 
     try:
         if text_model:
-            return _emb.MLXTextEmbedder(
+            return emb.MLXTextEmbedder(
                 model_name=text_model, batch_size=config.batch_size
             )
-        return _emb.MLXSigLIPEmbedder(
+        return emb.MLXSigLIPEmbedder(
             config.model, batch_size=config.batch_size, dim=config.embed_dim
         )
     except Exception as exc:  # noqa: BLE001

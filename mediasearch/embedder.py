@@ -1,8 +1,19 @@
+"""
+Embedder
+
+We support three embedders:
+    * FakeEmbedder, used for tests
+    * MLXSigLIPEmbedder, used for images and videos
+    * MLXTextEmbedder, used for text
+"""
+
+from abc import abstractmethod
 import hashlib
 from typing import Protocol, runtime_checkable, Any
 
 import numpy as np
 from PIL import Image
+from mlx_embeddings import load as mlx_load
 
 from .config import DEFAULT_TEXT_MODEL, EMBED_DIM, TEXT_EMBED_DIM
 
@@ -19,11 +30,20 @@ def l2_normalize(v: np.ndarray) -> np.ndarray:
 class Embedder(Protocol):
     dim: int
 
-    def embed_texts(self, texts: list[str]) -> np.ndarray: ...
-    def embed_images(self, images: list[Image.Image]) -> np.ndarray: ...
+    @abstractmethod
+    def embed_texts(self, texts: list[str]) -> np.ndarray:
+        raise NotImplementedError
+
+    @abstractmethod
+    def embed_images(self, images: list[Image.Image]) -> np.ndarray:
+        raise NotImplementedError
+
+    def _to_numpy(self, embeds: Any) -> np.ndarray:
+        """Convert MLX arrays or PyTorch tensors to NumPy arrays."""
+        return np.array(embeds, dtype=np.float32)
 
 
-class FakeEmbedder:
+class FakeEmbedder(Embedder):
     """
     Deterministic, model-free embedder for tests. Same content -> same vector.
     """
@@ -51,7 +71,7 @@ class FakeEmbedder:
         return l2_normalize(v)
 
 
-class MLXSigLIPEmbedder:
+class MLXSigLIPEmbedder(Embedder):
     """
     SigLIP 2 embeddings via mlx-embeddings. Loads the model+processor once.
     """
@@ -60,16 +80,10 @@ class MLXSigLIPEmbedder:
         self, model_name: str, batch_size: int = 16, dim: int = EMBED_DIM
     ):
         """Initialise the model and processor from mlx-embeddings."""
-        from mlx_embeddings import load
 
-        self.model, self.processor = load(model_name)
+        self.model, self.processor = mlx_load(model_name)
         self.batch_size = batch_size
         self.dim = dim
-
-    def _to_numpy(self, embeds: Any) -> np.ndarray:
-        """Convert MLX arrays or PyTorch tensors to NumPy arrays."""
-        # mlx arrays, torch tensors, and numpy all support np.array(...)
-        return np.array(embeds, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Embed a list of texts into normalized vectors using SigLIP 2."""
@@ -115,7 +129,7 @@ class MLXSigLIPEmbedder:
         return out_normalized
 
 
-class MLXTextEmbedder:
+class MLXTextEmbedder(Embedder):
     """Text embeddings (e.g. multilingual-e5) via mlx-embeddings."""
 
     def __init__(
@@ -125,15 +139,10 @@ class MLXTextEmbedder:
         dim: int = TEXT_EMBED_DIM,
     ):
         """Initialise the text model and processor from mlx-embeddings."""
-        from mlx_embeddings import load
 
-        self.model, self.processor = load(model_name)
+        self.model, self.processor = mlx_load(model_name)
         self.batch_size = batch_size
         self.dim = dim
-
-    def _to_numpy(self, embeds: Any) -> np.ndarray:
-        """Convert MLX arrays or PyTorch tensors to NumPy arrays."""
-        return np.array(embeds, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Embed a list of texts into normalized vectors."""

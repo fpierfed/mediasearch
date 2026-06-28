@@ -67,6 +67,7 @@ def test_mlx_text_embedder(monkeypatch):
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
     monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
 
     embedder = MLXTextEmbedder(dim=768)
     out = embedder.embed_texts(['hello', 'world'])
@@ -103,6 +104,7 @@ def test_mlx_text_embedder_dimension_mismatch(monkeypatch):
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
     monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
 
     embedder = MLXTextEmbedder(dim=768)
 
@@ -137,6 +139,7 @@ def test_mlx_text_embedder_batching(monkeypatch):
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
     monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
 
     embedder = MLXTextEmbedder(batch_size=2, dim=768)
     out = embedder.embed_texts(['a', 'b', 'c'])  # 3 texts, 2 batches
@@ -161,6 +164,7 @@ def test_mlx_text_embedder_embed_images_raises(monkeypatch):
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
     monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
 
     embedder = MLXTextEmbedder(dim=768)
     dummy = Image.new('RGB', (8, 8))
@@ -235,6 +239,7 @@ def test_mlx_siglip_dimension_mismatch(monkeypatch):
     mock_mlx = MagicMock()
     mock_mlx.load = mock_load
     monkeypatch.setitem(sys.modules, 'mlx_embeddings', mock_mlx)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
 
     # Mock _to_numpy to return an array with wrong dimension
     embedder = MLXSigLIPEmbedder(model_name='test', dim=1152)
