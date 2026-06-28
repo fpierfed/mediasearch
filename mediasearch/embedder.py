@@ -94,6 +94,7 @@ class MLXSigLIPEmbedder(Embedder):
                 text=batch,
                 padding='max_length',
                 max_length=64,
+                truncation=True,
                 return_tensors='mlx',
             )
             embeds = self.model.get_text_features(
@@ -153,6 +154,7 @@ class MLXTextEmbedder(Embedder):
                 text=batch,
                 padding='max_length',
                 max_length=64,
+                truncation=True,
                 return_tensors='mlx',
             )
             embeds = self.model(**inputs).text_embeds

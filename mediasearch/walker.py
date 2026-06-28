@@ -20,8 +20,10 @@ def walk(roots: list[Path]) -> Iterator[MediaFile]:
     symlinks or unreadable files are skipped via OSError.
     """
     for root in roots:
-        root = Path(root)
+        root = Path(root).resolve()
         for p in sorted(root.rglob('*')):
+            if any(part.startswith('.') for part in p.relative_to(root).parts):
+                continue
             try:
                 st = p.stat()
             except OSError:
