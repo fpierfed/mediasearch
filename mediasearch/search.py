@@ -1,13 +1,15 @@
 import itertools
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pillow_heif
 from PIL import Image
 
+from .config import Config
+from .embedder import Embedder
 from .frames import sample_video
+from .store import Store
 
 logger = logging.getLogger(__name__)
 
@@ -111,10 +113,10 @@ def _format(rows: list[dict]) -> list[dict]:
 
 def search_text(
     query: str,
-    config: Any,
-    embedder: Any,
-    text_embedder: Any,
-    store: Any,
+    config: Config,
+    embedder: Embedder,
+    text_embedder: Embedder,
+    store: Store,
     top_k: int | None = None,
     media_type: str | None = None,
 ) -> list[dict]:
@@ -148,9 +150,9 @@ def search_text(
 
 def search_image(
     path: str | Path,
-    config: Any,
-    embedder: Any,
-    store: Any,
+    config: Config,
+    embedder: Embedder,
+    store: Store,
     top_k: int | None = None,
     media_type: str | None = None,
 ) -> list[dict]:
@@ -165,9 +167,9 @@ def search_image(
 
 def search_clip(
     path: str | Path,
-    config: Any,
-    embedder: Any,
-    store: Any,
+    config: Config,
+    embedder: Embedder,
+    store: Store,
     top_k: int | None = None,
 ) -> list[dict]:
     """Search the index for clips similar to *path*.

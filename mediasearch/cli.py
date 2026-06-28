@@ -3,12 +3,13 @@ import os
 import subprocess
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import typer
 
 from . import pipeline, search as search_mod
 from .config import Config, DEFAULT_MODEL, DEFAULT_TEXT_MODEL
+from .embedder import Embedder
 from .store import Store
 
 app = typer.Typer(add_completion=False, help='Local semantic media search.')
@@ -39,7 +40,7 @@ def _open_store(config: Config) -> Store:
     )
 
 
-def _build_embedder(config: Config, text_model: Optional[str] = None) -> Any:
+def _build_embedder(config: Config, text_model: Optional[str] = None) -> Embedder:
     """Build and return an embedder for images or text, using a fake if requested."""
     if os.environ.get('MEDIASEARCH_FAKE_EMBEDDER') == '1':
         from .embedder import FakeEmbedder

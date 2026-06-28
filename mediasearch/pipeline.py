@@ -2,13 +2,14 @@ import logging
 import math
 import uuid
 from pathlib import Path
-from typing import Callable, Any
+from typing import Callable
 
 import mlx_whisper
 import pillow_heif
 from PIL import Image
 
 from .config import DEFAULT_AUDIO_MODEL, Config
+from .embedder import Embedder
 from .frames import sample_video
 from .store import Store
 from .walker import MediaFile, walk
@@ -19,7 +20,7 @@ pillow_heif.register_heif_opener()
 
 
 def _process_audio(
-    mf: MediaFile, text_embedder: Any, audio_model: str = DEFAULT_AUDIO_MODEL
+    mf: MediaFile, text_embedder: Embedder, audio_model: str = DEFAULT_AUDIO_MODEL
 ) -> list[dict]:
     """Transcribe audio from a video file and return transcript rows with embeddings."""
     try:
@@ -51,7 +52,7 @@ def _process_audio(
         return []
 
 
-def _process(mf: MediaFile, config: Config, embedder: Any) -> list[dict]:
+def _process(mf: MediaFile, config: Config, embedder: Embedder) -> list[dict]:
     """Process a media file (image or video) and return its visual embedding rows."""
     if mf.media_type == 'image':
         with Image.open(mf.path) as im:
@@ -103,8 +104,8 @@ def _unchanged(prev: dict, mf: MediaFile) -> bool:
 
 def index(
     config: Config,
-    embedder: Any,
-    text_embedder: Any,
+    embedder: Embedder,
+    text_embedder: Embedder,
     store: Store,
     roots: list[str],
     reindex: bool = False,
