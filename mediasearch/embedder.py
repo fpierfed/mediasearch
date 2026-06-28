@@ -4,7 +4,7 @@ from typing import Protocol, runtime_checkable, Any
 import numpy as np
 from PIL import Image
 
-from .config import DEFAULT_TEXT_MODEL, EMBED_DIM
+from .config import DEFAULT_TEXT_MODEL, EMBED_DIM, TEXT_EMBED_DIM
 
 
 def l2_normalize(v: np.ndarray) -> np.ndarray:
@@ -122,7 +122,7 @@ class MLXTextEmbedder:
         self,
         model_name: str = DEFAULT_TEXT_MODEL,
         batch_size: int = 16,
-        dim: int = 768,
+        dim: int = TEXT_EMBED_DIM,
     ):
         """Initialise the text model and processor from mlx-embeddings."""
         from mlx_embeddings import load

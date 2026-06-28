@@ -6,7 +6,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from .config import EMBED_DIM
+from .config import EMBED_DIM, TEXT_EMBED_DIM
 
 
 def _esc(value: str) -> str:
@@ -59,7 +59,7 @@ class Store:
         self,
         index_path: str | Path,
         dim: int = EMBED_DIM,
-        text_dim: int = 768,
+        text_dim: int = TEXT_EMBED_DIM,
         fts_score_k: float = 10.0,
     ) -> None:
         """Initialise the store, creating tables if they do not exist."""

@@ -8,7 +8,7 @@ from typing import Optional
 import typer
 
 from . import pipeline, search as search_mod
-from .config import Config, DEFAULT_MODEL, DEFAULT_TEXT_MODEL
+from .config import Config, DEFAULT_MODEL, DEFAULT_TEXT_MODEL, TEXT_EMBED_DIM
 from .embedder import Embedder
 from .store import Store
 
@@ -50,7 +50,7 @@ def _build_embedder(
     if os.environ.get('MEDIASEARCH_FAKE_EMBEDDER') == '1':
         from .embedder import FakeEmbedder
 
-        return FakeEmbedder(dim=768 if text_model else config.embed_dim)
+        return FakeEmbedder(dim=TEXT_EMBED_DIM if text_model else config.embed_dim)
     from . import embedder as _emb
 
     try:
@@ -91,7 +91,7 @@ def _guard_dim(store: Store, config: Config, reindex: bool = False) -> None:
 def _guard_text_dim(store: Store) -> None:
     """Validate that the on-disk transcripts table dimension matches the
     configured text model.  Currently all supported text models produce
-    768-d vectors, so this is a forward-looking safeguard."""
+    TEXT_EMBED_DIM-d vectors, so this is a forward-looking safeguard."""
     on_disk = store.text_index_dim()
     if on_disk != store.text_dim:
         raise typer.BadParameter(

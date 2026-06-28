@@ -40,6 +40,7 @@ def embed_dim_for(model: str) -> int:
 EMBED_DIM = embed_dim_for(
     DEFAULT_MODEL
 )  # 1152; kept for backward-compatible imports
+TEXT_EMBED_DIM = 768
 DEFAULT_INDEX_PATH = Path.home() / '.mediasearch' / 'index'
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'}
