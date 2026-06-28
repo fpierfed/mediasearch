@@ -7,18 +7,21 @@ from mediasearch.config import EMBED_DIM
 
 
 def test_l2_normalize_unit_length():
+    """Test that l2_normalize correctly scales vectors to unit length."""
     v = np.array([[3.0, 4.0]], dtype=np.float32)
     out = l2_normalize(v)
     assert np.isclose(np.linalg.norm(out[0]), 1.0)
 
 
 def test_l2_normalize_handles_zero_vector():
+    """Test that l2_normalize handles zero vectors without dividing by zero."""
     v = np.zeros((1, 4), dtype=np.float32)
     out = l2_normalize(v)  # must not divide by zero
     assert np.all(np.isfinite(out))
 
 
 def test_fake_text_is_deterministic_and_normalized():
+    """Test that FakeEmbedder produces deterministic and normalized text embeddings."""
     e = FakeEmbedder()
     a = e.embed_texts(['a cat', 'a dog'])
     b = e.embed_texts(['a cat', 'a dog'])
@@ -29,6 +32,7 @@ def test_fake_text_is_deterministic_and_normalized():
 
 
 def test_fake_same_image_same_vector():
+    """Test that FakeEmbedder produces the same embedding for identical images."""
     e = FakeEmbedder()
     img = Image.new('RGB', (8, 8), (10, 20, 30))
     v1 = e.embed_images([img])
@@ -37,6 +41,7 @@ def test_fake_same_image_same_vector():
 
 
 def test_mlx_text_embedder(monkeypatch):
+    """Test that MLXTextEmbedder initializes and produces correct text embeddings."""
     import sys
     from unittest.mock import MagicMock
     from mediasearch.embedder import MLXTextEmbedder
@@ -70,6 +75,7 @@ def test_mlx_text_embedder(monkeypatch):
 
 
 def test_mlx_text_embedder_dimension_mismatch(monkeypatch):
+    """Test that MLXTextEmbedder raises ValueError when output dimension mismatches expected."""
     import sys
     import pytest
     from unittest.mock import MagicMock

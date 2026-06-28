@@ -56,6 +56,7 @@ class Store:
         text_dim: int = 768,
         fts_score_k: float = 10.0,
     ) -> None:
+        """Initialise the store, creating tables if they do not exist."""
         Path(index_path).mkdir(parents=True, exist_ok=True)
         self.dim = dim
         self.text_dim = text_dim
@@ -64,6 +65,7 @@ class Store:
         self._ensure_tables()
 
     def _emb_schema(self) -> pa.Schema:
+        """Return the schema for the embeddings table."""
         return pa.schema(
             [
                 pa.field('id', pa.string()),
@@ -76,6 +78,7 @@ class Store:
         )
 
     def _files_schema(self) -> pa.Schema:
+        """Return the schema for the files tracking table."""
         return pa.schema(
             [
                 pa.field('path', pa.string()),
@@ -90,6 +93,7 @@ class Store:
         )
 
     def _transcripts_schema(self) -> pa.Schema:
+        """Return the schema for the transcripts table."""
         return pa.schema(
             [
                 pa.field('id', pa.string()),
@@ -103,6 +107,7 @@ class Store:
         )
 
     def _ensure_tables(self) -> None:
+        """Ensure all required tables exist in the database."""
         names = self.db.list_tables()
         names = getattr(names, 'tables', names)
         if 'embeddings' not in names:
@@ -121,6 +126,7 @@ class Store:
         self.transcripts = self.db.open_table('transcripts')
 
     def manifest(self) -> dict:
+        """Return a mapping of file paths to their tracking status rows."""
         rows = self.files.to_arrow().to_pylist()
         return {r['path']: r for r in rows}
 
@@ -135,6 +141,7 @@ class Store:
         n_vectors: int = 0,
         error_msg: str | None = None,
     ) -> None:
+        """Upsert a file's status in the tracking table."""
         self.files.delete(f"path = '{_esc(path)}'")
         self.files.add(
             [
@@ -152,24 +159,29 @@ class Store:
         )
 
     def errors(self) -> list[dict]:
+        """Return a list of file rows that encountered errors during indexing."""
         rows = self.files.to_arrow().to_pylist()
         return [r for r in rows if r['status'] == 'error']
 
     def add_embeddings(self, rows: list[dict]) -> None:
+        """Add rows to the visual embeddings table."""
         if rows:
             self.emb.add(rows)
 
     def add_transcripts(self, rows: list[dict]) -> None:
+        """Add rows to the audio transcripts table."""
         if rows:
             self.transcripts.add(rows)
 
     def delete_file(self, path: str) -> None:
+        """Remove all data associated with a file from all tables."""
         esc = _esc(path)
         self.emb.delete(f"media_path = '{esc}'")
         self.transcripts.delete(f"media_path = '{esc}'")
         self.files.delete(f"path = '{esc}'")
 
     def count_vectors(self, media_path: str) -> int:
+        """Return the number of visual embeddings stored for a given file."""
         return int(
             self.emb.count_rows(filter=f"media_path = '{_esc(media_path)}'")
         )
@@ -180,6 +192,7 @@ class Store:
         top_k: int,
         media_type: str | None = None,
     ) -> list[dict]:
+        """Search the visual embeddings table for the closest vectors."""
         q = (
             self.emb.search(np.asarray(vector, dtype=np.float32))
             .metric('cosine')
@@ -194,6 +207,7 @@ class Store:
     def search_transcripts_vector(
         self, vector: list[float] | np.ndarray, top_k: int
     ) -> list[dict]:
+        """Search the transcripts table using semantic vector similarity."""
         q = (
             self.transcripts.search(np.asarray(vector, dtype=np.float32))
             .metric('cosine')
@@ -204,6 +218,7 @@ class Store:
         return results
 
     def search_transcripts_fts(self, query: str, top_k: int) -> list[dict]:
+        """Search the transcripts table using full-text search (BM25)."""
         # LanceDB full-text search directly accepts the string query and uses the FTS index
         q = self.transcripts.search(query).limit(top_k)
         results = q.to_list()
@@ -228,6 +243,7 @@ class Store:
         self._ensure_tables()
 
     def stats(self) -> dict:
+        """Return summary statistics about the indexed files and vectors."""
         import pyarrow.compute as pc
 
         t = self.files.to_arrow()

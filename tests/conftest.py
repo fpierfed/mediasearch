@@ -26,6 +26,7 @@ def _make_video(path, seconds=4, fps=10, size=(64, 64)):
 
 @pytest.fixture
 def sample_video(tmp_path):
+    """Fixture providing a path to a generated short sample video."""
     p = tmp_path / "clip.mp4"
     _make_video(p)
     return p
@@ -33,7 +34,9 @@ def sample_video(tmp_path):
 
 @pytest.fixture
 def make_image():
+    """Fixture returning a factory function to generate a test image."""
     def _make(path, color=(120, 120, 120), size=(64, 64)):
+        """Create a solid color image at the specified path."""
         Image.new("RGB", size, color).save(path)
         return path
     return _make

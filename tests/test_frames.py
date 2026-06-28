@@ -5,12 +5,14 @@ from mediasearch.frames import Frame, dedup, extract_frames, sample_video
 
 
 def _frame(color, ts, idx):
+    """Helper function to create a mock Frame with a solid color image."""
     return Frame(
         image=Image.new('RGB', (32, 32), color), timestamp=ts, frame_idx=idx
     )
 
 
 def test_dedup_collapses_identical_frames():
+    """Test that dedup collapses identical consecutive frames."""
     frames = [_frame((255, 255, 255), float(i), i) for i in range(5)]
     kept = dedup(frames, threshold=5)
     assert len(kept) == 1
@@ -18,6 +20,7 @@ def test_dedup_collapses_identical_frames():
 
 
 def test_dedup_keeps_distinct_frames():
+    """Test that dedup keeps frames with distinct colors."""
     frames = [
         _frame((255, 255, 255), 0.0, 0),
         _frame((0, 0, 0), 1.0, 1),
@@ -28,6 +31,7 @@ def test_dedup_keeps_distinct_frames():
 
 
 def test_extract_frames_returns_timestamps(sample_video):
+    """Test that extract_frames returns monotonically increasing timestamps."""
     frames = extract_frames(sample_video, interval=2.0)
     assert len(frames) >= 2
     ts = [f.timestamp for f in frames]
@@ -37,6 +41,7 @@ def test_extract_frames_returns_timestamps(sample_video):
 
 
 def test_sample_video_dedups_two_scenes(sample_video):
+    """Test that sample_video successfully extracts and deduplicates frames from a multi-scene video."""
     from mediasearch.frames import sample_video as sample_fn
 
     kept = sample_fn(sample_video, interval=2.0, dedup_threshold=5)

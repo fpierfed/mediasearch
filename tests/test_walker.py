@@ -2,6 +2,7 @@ from mediasearch.walker import walk, MediaFile
 
 
 def test_walk_finds_and_classifies(tmp_path, make_image):
+    """Test that walk correctly finds and assigns media types to recognized files."""
     make_image(tmp_path / 'a.png')
     sub = tmp_path / 'sub'
     sub.mkdir()
@@ -23,6 +24,7 @@ def test_walk_finds_and_classifies(tmp_path, make_image):
 
 
 def test_walk_is_deterministic(tmp_path, make_image):
+    """Test that walk yields files in a deterministic sorted order."""
     for n in ['z.png', 'a.png', 'm.png']:
         make_image(tmp_path / n)
     names = [f.path.name for f in walk([tmp_path])]

@@ -5,6 +5,7 @@ from mediasearch.store import Store, _esc
 
 
 def _row(media_path, vec, media_type='image', ts=0.0, idx=0):
+    """Helper function to create a mock database row dictionary."""
     return {
         'id': f'{media_path}:{idx}',
         'media_path': media_path,
@@ -16,12 +17,14 @@ def _row(media_path, vec, media_type='image', ts=0.0, idx=0):
 
 
 def _unit(seed, dim=1152):
+    """Helper function to create a deterministic random unit vector."""
     rng = np.random.default_rng(seed)
     v = rng.standard_normal(dim).astype(np.float32)
     return v / np.linalg.norm(v)
 
 
 def test_set_and_read_manifest(tmp_path):
+    """Test that writing a file status allows retrieving it from the manifest."""
     s = Store(tmp_path / 'idx')
     s.set_file(
         path='/a.png',
@@ -37,6 +40,7 @@ def test_set_and_read_manifest(tmp_path):
 
 
 def test_set_file_upserts(tmp_path):
+    """Test that setting a file status updates the existing entry."""
     s = Store(tmp_path / 'idx')
     s.set_file(
         path='/a.png', mtime=1.0, size=10, media_type='image', status='pending'
@@ -55,6 +59,7 @@ def test_set_file_upserts(tmp_path):
 
 
 def test_add_search_and_group(tmp_path):
+    """Test that adding vectors allows retrieving them correctly via search."""
     s = Store(tmp_path / 'idx')
     va, vb = _unit(1), _unit(2)
     s.add_embeddings([_row('/a.png', va), _row('/b.png', vb)])
@@ -65,6 +70,7 @@ def test_add_search_and_group(tmp_path):
 
 
 def test_delete_file_removes_vectors_and_manifest(tmp_path):
+    """Test that deleting a file drops its vectors and manifest entry."""
     s = Store(tmp_path / 'idx')
     s.add_embeddings([_row('/a.png', _unit(1))])
     s.set_file(
@@ -81,6 +87,7 @@ def test_delete_file_removes_vectors_and_manifest(tmp_path):
 
 
 def test_search_media_type_filter(tmp_path):
+    """Test that search properly filters results by media type."""
     s = Store(tmp_path / 'idx')
     s.add_embeddings([_row('/a.png', _unit(1), media_type='image')])
     s.add_embeddings(
@@ -92,6 +99,7 @@ def test_search_media_type_filter(tmp_path):
 
 
 def test_stats(tmp_path):
+    """Test that stats returns accurate counts of files and vectors."""
     s = Store(tmp_path / 'idx')
     s.set_file(
         path='/a.png',
@@ -121,6 +129,7 @@ def test_stats(tmp_path):
 
 
 def test_reopen_existing_index_does_not_recreate(tmp_path):
+    """Test that opening an existing index does not attempt to recreate its tables."""
     # Regression: lancedb list_tables() returns a response object, not a list;
     # reopening an existing index must NOT try to recreate tables.
     path = tmp_path / 'idx'
@@ -142,11 +151,13 @@ def test_reopen_existing_index_does_not_recreate(tmp_path):
 
 
 def test_index_dim_reports_schema(tmp_path):
+    """Test that index_dim matches the stored schema's dimension."""
     assert Store(tmp_path / 'idx', dim=768).index_dim() == 768
     assert Store(tmp_path / 'idx2').index_dim() == 1152  # default EMBED_DIM
 
 
 def test_reset_recreates_tables_at_new_dim(tmp_path):
+    """Test that reset wipes the database and recreates tables with updated dimensions."""
     path = tmp_path / 'idx'
     s1 = Store(path, dim=1152)
     s1.add_embeddings([_row('/a.png', _unit(1, dim=1152))])
@@ -160,6 +171,7 @@ def test_reset_recreates_tables_at_new_dim(tmp_path):
 
 
 def test_transcripts_operations(tmp_path):
+    """Test adding and searching transcripts, both semantically and via FTS."""
     s = Store(tmp_path / 'idx')
 
     rows = [

@@ -21,6 +21,7 @@ pillow_heif.register_heif_opener()
 def _process_audio(
     mf: MediaFile, text_embedder: Any, audio_model: str = DEFAULT_AUDIO_MODEL
 ) -> list[dict]:
+    """Transcribe audio from a video file and return transcript rows with embeddings."""
     try:
         result = mlx_whisper.transcribe(
             str(mf.path),
@@ -51,6 +52,7 @@ def _process_audio(
 
 
 def _process(mf: MediaFile, config: Config, embedder: Any) -> list[dict]:
+    """Process a media file (image or video) and return its visual embedding rows."""
     if mf.media_type == 'image':
         with Image.open(mf.path) as im:
             img = im.convert('RGB')
@@ -86,6 +88,7 @@ def _process(mf: MediaFile, config: Config, embedder: Any) -> list[dict]:
 
 
 def _unchanged(prev: dict, mf: MediaFile) -> bool:
+    """Check if a file is unchanged compared to its previously indexed state."""
     # Use math.isclose for mtime because the value round-trips through
     # PyArrow float64 in LanceDB and may differ by 1 ULP from the live
     # os.stat().st_mtime — exact == would cause false-dirty detection.
@@ -107,6 +110,7 @@ def index(
     reindex: bool = False,
     progress: Callable[[], None] | None = None,
 ) -> None:
+    """Walk directories to find media files and process them into the index."""
     manifest = store.manifest()
     for mf in walk([Path(r) for r in roots]):
         key = str(mf.path)

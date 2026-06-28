@@ -9,6 +9,7 @@ runner = CliRunner()
 
 
 def test_index_then_status(tmp_path, make_image, monkeypatch):
+    """Test that indexing a directory works and status returns file counts."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -24,6 +25,7 @@ def test_index_then_status(tmp_path, make_image, monkeypatch):
 
 
 def test_search_json_output(tmp_path, make_image, monkeypatch):
+    """Test that the search command with --json returns valid JSON output."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -41,6 +43,7 @@ def test_search_json_output(tmp_path, make_image, monkeypatch):
 
 
 def test_similar_image(tmp_path, make_image, monkeypatch):
+    """Test that similar-image command finds and returns the closest image match."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -65,6 +68,7 @@ def test_similar_image(tmp_path, make_image, monkeypatch):
 
 
 def test_invalid_type_is_rejected(tmp_path, make_image, monkeypatch):
+    """Test that providing an invalid --type to search results in an error."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -81,6 +85,7 @@ def test_invalid_type_is_rejected(tmp_path, make_image, monkeypatch):
 
 
 def test_model_load_failure_is_friendly(tmp_path, make_image, monkeypatch):
+    """Test that failing to load a real model provides a user-friendly error message."""
     # No fake-embedder env -> real branch; force the real embedder to fail to load.
     monkeypatch.delenv('MEDIASEARCH_FAKE_EMBEDDER', raising=False)
     import mediasearch.embedder as emb
@@ -106,6 +111,7 @@ BASE_MODEL = 'mlx-community/siglip2-base-patch16-384'
 
 
 def test_bad_model_is_rejected(tmp_path, monkeypatch):
+    """Test that providing an unknown --model flag results in a clear error."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     idx = tmp_path / 'idx'
     r = runner.invoke(
@@ -118,6 +124,7 @@ def test_bad_model_is_rejected(tmp_path, monkeypatch):
 def test_dim_mismatch_without_reindex_errors(
     tmp_path, make_image, monkeypatch
 ):
+    """Test that running with a mismatched model dimension prompts the user to reindex."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -139,6 +146,7 @@ def test_dim_mismatch_without_reindex_errors(
 
 
 def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
+    """Test that passing --reindex allows rebuilding the index with a new model dimension."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
     lib = tmp_path / 'lib'
     lib.mkdir()

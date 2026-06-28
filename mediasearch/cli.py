@@ -20,6 +20,7 @@ class MediaType(str, Enum):
 
 
 def _config(index_path: Optional[Path], model: Optional[str] = None) -> Config:
+    """Create a configuration object using the given index path and model."""
     c = Config()
     if index_path is not None:
         c.index_path = index_path
@@ -39,6 +40,7 @@ def _open_store(config: Config) -> Store:
 
 
 def _build_embedder(config: Config, text_model: Optional[str] = None) -> Any:
+    """Build and return an embedder for images or text, using a fake if requested."""
     if os.environ.get('MEDIASEARCH_FAKE_EMBEDDER') == '1':
         from .embedder import FakeEmbedder
 
@@ -62,6 +64,7 @@ def _build_embedder(config: Config, text_model: Optional[str] = None) -> Any:
 
 
 def _guard_dim(store: Store, config: Config, reindex: bool = False) -> None:
+    """Validate that the on-disk embeddings table matches the configured visual model dimension."""
     on_disk = store.index_dim()
     if on_disk != config.embed_dim:
         if reindex:
@@ -88,6 +91,7 @@ def _guard_text_dim(store: Store) -> None:
 
 
 def _emit(results: list[dict], as_json: bool, open_top: bool) -> None:
+    """Output search results to the console, optionally in JSON format, and optionally open the top result."""
     if as_json:
         typer.echo(_json.dumps(results, indent=2))
     elif not results:
@@ -114,6 +118,7 @@ def index(
         None, '--model', help='embedding model id'
     ),
 ) -> None:
+    """Index directories containing media files for semantic search."""
     from tqdm import tqdm
 
     config = _config(index_path, model)
@@ -157,6 +162,7 @@ def search(
         None, '--model', help='embedding model id'
     ),
 ) -> None:
+    """Search the index for media matching a text query."""
     config = _config(index_path, model)
     store = _open_store(config)
     _guard_dim(store, config)
@@ -189,6 +195,7 @@ def similar_image(
         None, '--model', help='embedding model id'
     ),
 ) -> None:
+    """Search the index for media visually similar to a provided image."""
     config = _config(index_path, model)
     store = _open_store(config)
     _guard_dim(store, config)
@@ -215,6 +222,7 @@ def similar_clip(
         None, '--model', help='embedding model id'
     ),
 ) -> None:
+    """Search the index for video clips similar to a provided video clip."""
     config = _config(index_path, model)
     store = _open_store(config)
     _guard_dim(store, config)
@@ -232,6 +240,7 @@ def status(
         None, '--model', help='embedding model id'
     ),
 ) -> None:
+    """Show status and statistics about the current index."""
     config = _config(index_path, model)
     store = _open_store(config)
     st = store.stats()

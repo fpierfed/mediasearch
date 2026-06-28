@@ -11,12 +11,14 @@ from mediasearch.store import Store
 
 
 def test_format_timestamp():
+    """Test that format_timestamp correctly formats seconds to MM:SS."""
     assert format_timestamp(0) == '0:00'
     assert format_timestamp(62) == '1:02'
     assert format_timestamp(125.6) == '2:06'
 
 
 def _library(tmp_path, make_image, sample_video):
+    """Helper function to create a populated test library and index it."""
     lib = tmp_path / 'lib'
     lib.mkdir()
     make_image(lib / 'a.png', (200, 10, 10))
@@ -31,6 +33,7 @@ def _library(tmp_path, make_image, sample_video):
 def test_search_image_returns_exact_match_first(
     tmp_path, make_image, sample_video
 ):
+    """Test that an image query returns the identical image as its best result."""
     config, store, lib = _library(tmp_path, make_image, sample_video)
     results = search_image(lib / 'a.png', config, FakeEmbedder(), store)
     assert results[0]['path'] == str(lib / 'a.png')
@@ -41,6 +44,7 @@ def test_search_image_returns_exact_match_first(
 def test_results_are_grouped_one_row_per_file(
     tmp_path, make_image, sample_video
 ):
+    """Test that search results contain only one best match per media file."""
     config, store, lib = _library(tmp_path, make_image, sample_video)
     results = search_image(lib / 'a.png', config, FakeEmbedder(), store)
     paths = [r['path'] for r in results]
@@ -50,6 +54,7 @@ def test_results_are_grouped_one_row_per_file(
 
 
 def test_video_result_has_timestamp(tmp_path, make_image, sample_video):
+    """Test that video search results include a formatted timestamp."""
     config, store, lib = _library(tmp_path, make_image, sample_video)
     results = search_clip(lib / 'clip.mp4', config, FakeEmbedder(), store)
     top = results[0]
@@ -61,6 +66,7 @@ def test_video_result_has_timestamp(tmp_path, make_image, sample_video):
 def test_search_text_runs_and_is_structured(
     tmp_path, make_image, sample_video
 ):
+    """Test that text search yields properly structured result dictionaries."""
     config, store, lib = _library(tmp_path, make_image, sample_video)
     results = search_text(
         'anything',
@@ -83,6 +89,7 @@ def test_search_text_runs_and_is_structured(
 
 
 def test_search_clip_empty_or_corrupt_clip_returns_empty(tmp_path, make_image):
+    """Test that search_clip returns an empty list for a bad video file instead of raising."""
     # A file with a video extension but no decodable frames must not crash search_clip.
     lib = tmp_path / 'lib'
     lib.mkdir()

@@ -30,6 +30,7 @@ class Frame:
 
 
 def _cgimage_to_pil(cg_image: Any) -> Image.Image:
+    """Convert an AVFoundation CGImage to a PIL Image."""
     width = CGImageGetWidth(cg_image)
     height = CGImageGetHeight(cg_image)
     bpr = CGImageGetBytesPerRow(cg_image)
@@ -127,4 +128,5 @@ def dedup(frames: list[Frame], threshold: int) -> list[Frame]:
 def sample_video(
     path: Path, interval: float, dedup_threshold: int
 ) -> list[Frame]:
+    """Extract and deduplicate frames from a video file."""
     return dedup(extract_frames(path, interval), dedup_threshold)

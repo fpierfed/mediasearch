@@ -23,11 +23,13 @@ _MOD_AUDIO = '[AUDIO]'
 
 
 def format_timestamp(seconds: float) -> str:
+    """Format a timestamp in seconds as an MM:SS string."""
     total = int(round(seconds))
     return f'{total // 60}:{total % 60:02d}'
 
 
 def _group_by_media(rows: list[dict]) -> list[dict]:
+    """Group search result rows by media file, keeping only the best match per file."""
     best: dict[str, dict] = {}
     for r in rows:
         mp = r['media_path']
@@ -88,6 +90,7 @@ def _group_by_media_multi(
 
 
 def _format(rows: list[dict]) -> list[dict]:
+    """Format search result rows for output."""
     out = []
     for rank, r in enumerate(rows, start=1):
         is_timeable = r['media_type'] in ('video', 'transcript')
@@ -115,6 +118,7 @@ def search_text(
     top_k: int | None = None,
     media_type: str | None = None,
 ) -> list[dict]:
+    """Search for media matching a text query, combining visual and audio similarities."""
     k = top_k or config.top_k
 
     vec = embedder.embed_texts([query])[0]
@@ -150,6 +154,7 @@ def search_image(
     top_k: int | None = None,
     media_type: str | None = None,
 ) -> list[dict]:
+    """Search for media visually similar to the provided image."""
     k = top_k or config.top_k
     with Image.open(Path(path)) as im:
         img = im.convert('RGB')

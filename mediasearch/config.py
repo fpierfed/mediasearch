@@ -27,6 +27,7 @@ DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-large-v3-turbo'
 
 
 def embed_dim_for(model: str) -> int:
+    """Return the embedding dimension for the given model ID."""
     try:
         return MODEL_DIMS[model]
     except KeyError:
@@ -46,6 +47,7 @@ VIDEO_EXTS = {'.mp4', '.mov', '.m4v', '.mkv', '.avi', '.webm'}
 
 
 def classify_ext(path: Path) -> str | None:
+    """Classify a file by extension as 'image' or 'video'."""
     ext = path.suffix.lower()
     if ext in IMAGE_EXTS:
         return 'image'
