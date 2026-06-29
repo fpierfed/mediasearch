@@ -118,8 +118,8 @@ $ mediasearch search "red bicycle" --open
 **Rebuild with a different model:**
 
 ```bash
-$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
-# Switches to the faster base model and rebuilds the entire index
+$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-so400m-patch16-384 --reindex
+# Switches to the higher-quality so400m model and rebuilds the entire index
 ```
 
 ## Interpreting result scores
@@ -170,19 +170,19 @@ Two SigLIP 2 models are supported, with different embedding dimensions:
 
 | Model | Dim | Quality | Speed / memory |
 |---|---|---|---|
-| `mlx-community/siglip2-so400m-patch16-384` (default) | 1152 | Best — stronger on fine-grained / abstract queries | ~1 GB params, slower ingest |
-| `mlx-community/siglip2-base-patch16-384` | 768 | Good for everyday queries | ~3–5× faster, ~half the memory, smaller index |
+| `google/siglip2-base-patch16-256` (default) | 768 | Good for everyday queries | Fast, low memory, smaller index |
+| `mlx-community/siglip2-so400m-patch16-384` | 1152 | Best — stronger on fine-grained / abstract queries | ~1 GB params, slower ingest |
 
 Pick one with `--model`. **The model and its embedding dimension are paired**, so an
 index built with one model cannot be searched or extended with the other — switching
 models requires rebuilding the index:
 
 ```bash
-# Rebuild the whole index with the faster base model
-mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
+# Rebuild the whole index with the higher-quality so400m model
+mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-so400m-patch16-384 --reindex
 
 # Then always pass the same --model for searches against that index
-mediasearch search "a red bicycle" --model mlx-community/siglip2-base-patch16-384
+mediasearch search "a red bicycle" --model mlx-community/siglip2-so400m-patch16-384
 ```
 
 If you query an index with the wrong model, mediasearch detects the dimension mismatch and

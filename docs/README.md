@@ -72,8 +72,8 @@ files=342  done=334  pending=0  error=8  vectors=1204
 
 $ mediasearch status --index-path /Volumes/external/mediasearch-index
 
-# Switch to the faster base model (requires rebuild)
-$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-base-patch16-384 --reindex
+# Switch to the higher-quality so400m model (requires rebuild)
+$ mediasearch index ~/Pictures ~/Movies --model mlx-community/siglip2-so400m-patch16-384 --reindex
 ```
 
 **Reveal the top hit in Finder:**
@@ -84,12 +84,12 @@ mediasearch search "red bicycle" --open
 
 ## Model choice
 
-Two SigLIP 2 sizes are supported.  Pick one with `--model`:
+Several SigLIP 2 sizes are supported.  Pick one with `--model`:
 
 | Model | Dim | Quality | Speed / memory |
 |---|---|---|---|
-| `mlx-community/siglip2-so400m-patch16-384` *(default)* | 1152 | Best | ~1 GB params |
-| `mlx-community/siglip2-base-patch16-384` | 768 | Good | ~3–5× faster |
+| `google/siglip2-base-patch16-256` *(default)* | 768 | Good | Fast, low memory |
+| `mlx-community/siglip2-so400m-patch16-384` | 1152 | Best | ~1 GB params, slower |
 
 The model and its embedding dimension are **paired** — switching models requires
 `--reindex`.  mediasearch detects mismatches and tells you what to do.
