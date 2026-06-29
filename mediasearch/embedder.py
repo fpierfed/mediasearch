@@ -13,9 +13,15 @@ from typing import Protocol, runtime_checkable, Any
 
 import numpy as np
 from PIL import Image
-from mlx_embeddings import load as mlx_load
 
 from .config import DEFAULT_TEXT_MODEL, EMBED_DIM, TEXT_EMBED_DIM
+
+
+def mlx_load(model_name: str):
+    """Load an MLX embeddings model when a real embedder is constructed."""
+    from mlx_embeddings import load
+
+    return load(model_name)
 
 
 def l2_normalize(v: np.ndarray) -> np.ndarray:
