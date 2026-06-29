@@ -6,3 +6,4 @@ __pycache__/
 *.lance/
 .DS_Store
 .coverage
+.venv
