@@ -137,7 +137,7 @@ def dedup(frames: Iterator[Frame], threshold: int) -> Iterator[Frame]:
     last_hash = None
     for f in frames:
         h = imagehash.colorhash(f.image)
-        if last_hash is None or (h - last_hash) > threshold:
+        if last_hash is None or abs(h - last_hash) > threshold:
             yield f
             last_hash = h
 
