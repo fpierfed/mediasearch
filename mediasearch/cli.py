@@ -2,6 +2,7 @@ import json as _json
 import os
 import subprocess
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -64,6 +65,10 @@ def _build_embedder(
             'mediasearch needs Apple Silicon + MLX and downloads the model '
             + 'on first use.'
         ) from exc
+
+
+def _build_text_embedder(config: Config) -> emb.Embedder:
+    return _build_embedder(config, text_model=DEFAULT_TEXT_MODEL)
 
 
 def _guard_dim(store: Store, config: Config, reindex: bool = False) -> None:
@@ -169,9 +174,7 @@ def index(
     # Pass a factory, not an instance: the text model is only needed for video
     # transcripts, so deferring its construction keeps it out of memory during
     # image-only runs (and until the first video) alongside the visual model.
-    text_embedder = lambda: _build_embedder(  # noqa: E731
-        config, text_model=DEFAULT_TEXT_MODEL
-    )
+    text_embedder = partial(_build_text_embedder, config)
 
     bar = tqdm(unit='file', desc='Indexing')
     pipeline.index(
@@ -181,7 +184,7 @@ def index(
         store,
         [str(d) for d in dirs],
         reindex=reindex,
-        progress=lambda: bar.update(1),
+        progress=bar.update,
     )
     bar.close()
     st = store.stats()

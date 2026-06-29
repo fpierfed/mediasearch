@@ -30,6 +30,10 @@ def format_timestamp(seconds: float) -> str:
     return f'{total // 60}:{total % 60:02d}'
 
 
+def _score(row: dict) -> float:
+    return row['score']
+
+
 def _group_by_media(rows: list[dict]) -> list[dict]:
     """
     Group search result rows by media file, keeping only the best match per
@@ -40,7 +44,7 @@ def _group_by_media(rows: list[dict]) -> list[dict]:
         mp = r['media_path']
         if mp not in best or r['score'] > best[mp]['score']:
             best[mp] = r
-    return sorted(best.values(), key=lambda r: r['score'], reverse=True)
+    return sorted(best.values(), key=_score, reverse=True)
 
 
 def _group_by_media_multi(
@@ -91,7 +95,7 @@ def _group_by_media_multi(
         row['modality'] = ''.join(mods)
         results.append(row)
 
-    return sorted(results, key=lambda r: r['score'], reverse=True)
+    return sorted(results, key=_score, reverse=True)
 
 
 def _format(rows: list[dict]) -> list[dict]:
@@ -211,5 +215,5 @@ def search_clip(
         mp = r['media_path']
         if mp not in agg or r['score'] > agg[mp]['score']:
             agg[mp] = r
-    ranked = sorted(agg.values(), key=lambda r: r['score'], reverse=True)
+    ranked = sorted(agg.values(), key=_score, reverse=True)
     return _format(ranked[:k])

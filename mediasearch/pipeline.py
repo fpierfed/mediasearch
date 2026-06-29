@@ -117,6 +117,29 @@ def _load_bounded_rgb_image(
     return img
 
 
+def _embed_and_write_frames(
+    frames: list[Frame], mf: MediaFile, embedder: Embedder, store: Store
+) -> int:
+    """Embed a batch of video frames, write the rows, and free MLX buffers."""
+    vecs = embedder.embed_images([f.image for f in frames])
+    metadata = [
+        {
+            'id': uuid.uuid4().hex,
+            'media_path': str(mf.path),
+            'media_type': 'video',
+            'timestamp': float(f.timestamp),
+            'frame_idx': int(f.frame_idx),
+        }
+        for f in frames
+    ]
+    store.add_embeddings_from_arrays(metadata, vecs)
+    # Clear per batch (not just per file): a single long video can stream
+    # thousands of frames, and the Metal cache would otherwise grow for
+    # the whole video before being released.
+    _clear_mlx_cache()
+    return len(metadata)
+
+
 def _process(
     mf: MediaFile, config: Config, embedder: Embedder, store: Store
 ) -> int:
@@ -148,26 +171,6 @@ def _process(
         _clear_mlx_cache()
         return 1
 
-    def _embed_and_write(frames: list[Frame]) -> int:
-        """Embed a batch of frames, write the rows, and free MLX buffers."""
-        vecs = embedder.embed_images([f.image for f in frames])
-        metadata = [
-            {
-                'id': uuid.uuid4().hex,
-                'media_path': str(mf.path),
-                'media_type': 'video',
-                'timestamp': float(f.timestamp),
-                'frame_idx': int(f.frame_idx),
-            }
-            for f in frames
-        ]
-        store.add_embeddings_from_arrays(metadata, vecs)
-        # Clear per batch (not just per file): a single long video can stream
-        # thousands of frames, and the Metal cache would otherwise grow for
-        # the whole video before being released.
-        _clear_mlx_cache()
-        return len(metadata)
-
     # Video: stream frames, embed in batches, write incrementally
     frames_iter = sample_video(
         mf.path,
@@ -181,12 +184,12 @@ def _process(
     for frame in frames_iter:
         batch.append(frame)
         if len(batch) >= config.batch_size:
-            total += _embed_and_write(batch)
+            total += _embed_and_write_frames(batch, mf, embedder, store)
             batch.clear()
 
     # Flush remaining partial batch
     if batch:
-        total += _embed_and_write(batch)
+        total += _embed_and_write_frames(batch, mf, embedder, store)
 
     return total
 
@@ -211,6 +214,22 @@ def _unchanged(prev: dict | ManifestStatus, mf: MediaFile) -> bool:
     )
 
 
+class _LazyTextEmbedder:
+    def __init__(self, text_embedder: Embedder | Callable[[], Embedder]):
+        # An Embedder instance satisfies the runtime-checkable Embedder protocol;
+        # a zero-arg factory does not, so this cleanly tells them apart without
+        # a separate flag.
+        self._text_embedder = text_embedder
+        self._resolved: Embedder | None = (
+            text_embedder if isinstance(text_embedder, Embedder) else None
+        )
+
+    def __call__(self) -> Embedder:
+        if self._resolved is None:
+            self._resolved = self._text_embedder()  # type: ignore[operator]
+        return self._resolved
+
+
 def index(
     config: Config,
     embedder: Embedder,
@@ -228,19 +247,7 @@ def index(
     memoised, so an image-only run never loads the text model — keeping it out
     of memory alongside the visual embedder until it is actually needed.
     """
-    # An Embedder instance satisfies the runtime-checkable Embedder protocol;
-    # a zero-arg factory (e.g. a lambda) does not, so this cleanly tells them
-    # apart without a separate flag.
-    resolved_text_embedder: Embedder | None = (
-        text_embedder if isinstance(text_embedder, Embedder) else None
-    )
-
-    def get_text_embedder() -> Embedder:
-        nonlocal resolved_text_embedder
-        if resolved_text_embedder is None:
-            resolved_text_embedder = text_embedder()  # type: ignore[operator]
-        return resolved_text_embedder
-
+    get_text_embedder = _LazyTextEmbedder(text_embedder)
     manifest = store.manifest_statuses()
     for mf in walk([Path(r) for r in roots]):
         key = str(mf.path)
