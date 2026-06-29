@@ -98,6 +98,23 @@ def test_cgimage_to_pil_non_32bpp(monkeypatch):
     assert result.size == (2, 2)
 
 
+def test_extract_frames_respects_max_size(sample_video):
+    """max_size caps the longer edge of decoded frames (downscaling)."""
+    # The fixture video is 64x64; cap to 32 so scaling must take effect.
+    frames = list(extract_frames(sample_video, interval=2.0, max_size=32))
+    assert len(frames) >= 2
+    for f in frames:
+        assert max(f.image.size) <= 32
+        assert f.image.mode == 'RGB'
+
+
+def test_extract_frames_no_max_size_keeps_native(sample_video):
+    """Without max_size, frames keep their native resolution."""
+    frames = list(extract_frames(sample_video, interval=2.0))
+    assert len(frames) >= 2
+    assert all(f.image.size == (64, 64) for f in frames)
+
+
 def test_extract_frames_nil_url(tmp_path, monkeypatch):
     """extract_frames raises ValueError when NSURL creation fails."""
     import mediasearch.frames as mf

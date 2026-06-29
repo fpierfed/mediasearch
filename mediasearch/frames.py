@@ -17,6 +17,7 @@ from Quartz import (
     CGImageGetHeight,
     CGImageGetBytesPerRow,
     CGImageGetBitsPerPixel,
+    CGSizeMake,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,8 +54,17 @@ def _cgimage_to_pil(cg_image: Any) -> Image.Image:
     return img.convert('RGB')
 
 
-def extract_frames(path: Path, interval: float) -> Iterator[Frame]:
-    """Decode sequentially using AVFoundation for hardware acceleration."""
+def extract_frames(
+    path: Path, interval: float, max_size: int | None = None
+) -> Iterator[Frame]:
+    """
+    Decode sequentially using AVFoundation for hardware acceleration.
+
+    When *max_size* is given, the generator scales each frame in hardware so
+    its longer edge is at most *max_size* px (aspect ratio preserved). This
+    bounds the memory of the decoded frame and the downstream embedding batch,
+    which would otherwise hold full-resolution frames.
+    """
     url = NSURL.fileURLWithPath_(str(path))
     if not url:
         raise ValueError(f'Failed to create NSURL from path: {path}')
@@ -68,6 +78,8 @@ def extract_frames(path: Path, interval: float) -> Iterator[Frame]:
         raise ValueError(f'Failed to create image generator for asset: {url}')
 
     generator.setAppliesPreferredTrackTransform_(True)
+    if max_size is not None:
+        generator.setMaximumSize_(CGSizeMake(max_size, max_size))
 
     duration_cmtime = asset.duration()
     duration_sec = CMTimeGetSeconds(duration_cmtime)
@@ -122,7 +134,10 @@ def dedup(frames: Iterator[Frame], threshold: int) -> Iterator[Frame]:
 
 
 def sample_video(
-    path: Path, interval: float, dedup_threshold: int
+    path: Path,
+    interval: float,
+    dedup_threshold: int,
+    max_size: int | None = None,
 ) -> Iterator[Frame]:
     """Extract and deduplicate frames from a video file."""
-    return dedup(extract_frames(path, interval), dedup_threshold)
+    return dedup(extract_frames(path, interval, max_size), dedup_threshold)

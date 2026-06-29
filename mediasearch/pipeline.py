@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
+import mlx.core as mx
 import mlx_whisper
 import pillow_heif
 from PIL import Image
@@ -84,37 +85,14 @@ def _process(
                 }
             ]
         )
+        # Release MLX's Metal buffer cache so it does not accumulate across
+        # files over a long run.
+        mx.clear_cache()
         return 1
 
-    # Video: stream frames, embed in batches, write incrementally
-    frames_iter = sample_video(
-        mf.path, config.frame_interval, config.dedup_threshold
-    )
-    batch: list[Frame] = []
-    total = 0
-
-    for frame in frames_iter:
-        batch.append(frame)
-        if len(batch) >= config.batch_size:
-            vecs = embedder.embed_images([f.image for f in batch])
-            rows = [
-                {
-                    'id': uuid.uuid4().hex,
-                    'media_path': str(mf.path),
-                    'media_type': 'video',
-                    'vector': list(v),
-                    'timestamp': float(f.timestamp),
-                    'frame_idx': int(f.frame_idx),
-                }
-                for f, v in zip(batch, vecs)
-            ]
-            store.add_embeddings(rows)
-            total += len(rows)
-            batch.clear()
-
-    # Flush remaining partial batch
-    if batch:
-        vecs = embedder.embed_images([f.image for f in batch])
+    def _embed_and_write(frames: list[Frame]) -> int:
+        """Embed a batch of frames, write the rows, and free MLX buffers."""
+        vecs = embedder.embed_images([f.image for f in frames])
         rows = [
             {
                 'id': uuid.uuid4().hex,
@@ -124,10 +102,34 @@ def _process(
                 'timestamp': float(f.timestamp),
                 'frame_idx': int(f.frame_idx),
             }
-            for f, v in zip(batch, vecs)
+            for f, v in zip(frames, vecs)
         ]
         store.add_embeddings(rows)
-        total += len(rows)
+        # Clear per batch (not just per file): a single long video can stream
+        # thousands of frames, and the Metal cache would otherwise grow for
+        # the whole video before being released.
+        mx.clear_cache()
+        return len(rows)
+
+    # Video: stream frames, embed in batches, write incrementally
+    frames_iter = sample_video(
+        mf.path,
+        config.frame_interval,
+        config.dedup_threshold,
+        config.frame_max_size,
+    )
+    batch: list[Frame] = []
+    total = 0
+
+    for frame in frames_iter:
+        batch.append(frame)
+        if len(batch) >= config.batch_size:
+            total += _embed_and_write(batch)
+            batch.clear()
+
+    # Flush remaining partial batch
+    if batch:
+        total += _embed_and_write(batch)
 
     return total
 
@@ -151,13 +153,33 @@ def _unchanged(prev: dict, mf: MediaFile) -> bool:
 def index(
     config: Config,
     embedder: Embedder,
-    text_embedder: Embedder,
+    text_embedder: Embedder | Callable[[], Embedder],
     store: Store,
     roots: list[str],
     reindex: bool = False,
     progress: Callable[[], None] | None = None,
 ) -> None:
-    """Walk directories to find media files and process them into the index."""
+    """
+    Walk directories to find media files and process them into the index.
+
+    *text_embedder* may be an :class:`Embedder` or a zero-arg factory that
+    builds one. A factory is resolved lazily on the first video transcript and
+    memoised, so an image-only run never loads the text model — keeping it out
+    of memory alongside the visual embedder until it is actually needed.
+    """
+    # An Embedder instance satisfies the runtime-checkable Embedder protocol;
+    # a zero-arg factory (e.g. a lambda) does not, so this cleanly tells them
+    # apart without a separate flag.
+    resolved_text_embedder: Embedder | None = (
+        text_embedder if isinstance(text_embedder, Embedder) else None
+    )
+
+    def get_text_embedder() -> Embedder:
+        nonlocal resolved_text_embedder
+        if resolved_text_embedder is None:
+            resolved_text_embedder = text_embedder()  # type: ignore[operator]
+        return resolved_text_embedder
+
     manifest = store.manifest()
     for mf in walk([Path(r) for r in roots]):
         key = str(mf.path)
@@ -188,7 +210,7 @@ def index(
             n_vectors = _process(mf, config, embedder, store)
             if mf.media_type == 'video':
                 transcript_rows = _process_audio(
-                    mf, text_embedder, config.audio_model
+                    mf, get_text_embedder(), config.audio_model
                 )
                 store.add_transcripts(transcript_rows)
 

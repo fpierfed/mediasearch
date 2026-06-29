@@ -140,7 +140,12 @@ def index(
     _guard_dim(store, config, reindex=reindex)
     _guard_text_dim(store)
     embedder = _build_embedder(config)
-    text_embedder = _build_embedder(config, text_model=DEFAULT_TEXT_MODEL)
+    # Pass a factory, not an instance: the text model is only needed for video
+    # transcripts, so deferring its construction keeps it out of memory during
+    # image-only runs (and until the first video) alongside the visual model.
+    text_embedder = lambda: _build_embedder(  # noqa: E731
+        config, text_model=DEFAULT_TEXT_MODEL
+    )
 
     bar = tqdm(unit='file', desc='Indexing')
     pipeline.index(

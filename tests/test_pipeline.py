@@ -229,6 +229,56 @@ def test_reindex_skip_calls_progress(tmp_path, make_image):
     assert len(skipped) >= 1  # the unchanged file triggered progress
 
 
+def test_text_embedder_factory_not_called_for_images(tmp_path, make_image):
+    """An image-only run never resolves the lazy text-embedder factory."""
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    make_image(lib / 'a.png')
+    make_image(lib / 'b.png')
+
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return FakeEmbedder()
+
+    config = Config()
+    store = Store(tmp_path / 'idx')
+    index(config, FakeEmbedder(), factory, store, [lib])
+
+    assert calls == []  # text model never loaded for images
+    assert store.stats()['done'] == 2
+
+
+def test_text_embedder_factory_resolved_once_for_videos(
+    tmp_path, sample_video, monkeypatch
+):
+    """The factory is resolved lazily and memoised across multiple videos."""
+    import mlx_whisper
+
+    # Avoid loading a real whisper model; we only care about the factory.
+    monkeypatch.setattr(
+        mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': []}
+    )
+
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    (lib / 'a.mp4').write_bytes(sample_video.read_bytes())
+    (lib / 'b.mp4').write_bytes(sample_video.read_bytes())
+
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return FakeEmbedder()
+
+    config = Config()
+    store = Store(tmp_path / 'idx')
+    index(config, FakeEmbedder(), factory, store, [lib])
+
+    assert len(calls) == 1  # built once, reused for the second video
+
+
 def test_process_video_writes_incrementally(tmp_path, sample_video):
     """_process writes video embeddings in batches, not all at once."""
     from mediasearch.pipeline import _process

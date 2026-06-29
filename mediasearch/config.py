@@ -23,7 +23,10 @@ MODEL_DIMS = {
 }
 DEFAULT_MODEL = 'google/siglip2-base-patch16-256'
 DEFAULT_TEXT_MODEL = 'mlx-community/multilingual-e5-base-mlx'
-DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-large-v3-turbo'
+# whisper-small (~244M params) keeps the resident transcription model far
+# smaller than large-v3-turbo (~809M) — a large RSS saving since this model
+# stays loaded alongside the visual and text embedders for the whole run.
+DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-small-mlx'
 
 
 def embed_dim_for(model: str) -> int:
@@ -72,6 +75,11 @@ class Config:
     audio_model: str = DEFAULT_AUDIO_MODEL
     frame_interval: float = 2.0
     dedup_threshold: int = 5
+    # Cap the longer edge of decoded video frames. SigLIP downsamples to
+    # <=512 px regardless, so decoding larger is wasted memory: a 4K RGB
+    # frame is ~33 MB vs ~0.8 MB at 512 px, and a batch holds batch_size of
+    # them at once. The decoder scales in hardware, preserving aspect ratio.
+    frame_max_size: int = 512
     batch_size: int = 16
     top_k: int = 20
     fts_score_k: float = (
