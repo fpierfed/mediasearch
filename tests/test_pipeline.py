@@ -274,6 +274,24 @@ def test_process_no_frames_for_video(tmp_path, monkeypatch):
     assert n == 0
 
 
+def test_process_rejects_unsupported_media_type(tmp_path):
+    """_process rejects media types that are not image or video."""
+    import pytest
+
+    from mediasearch.config import Config
+    from mediasearch.embedder import FakeEmbedder
+    from mediasearch.pipeline import _process
+    from mediasearch.store import Store
+    from mediasearch.walker import MediaFile
+
+    mf = MediaFile(
+        path=tmp_path / 'clip.wav', mtime=0.0, size=0, media_type='audio'
+    )
+
+    with pytest.raises(ValueError, match="Unsupported media type 'audio'"):
+        _process(mf, Config(), FakeEmbedder(), Store(tmp_path / 'idx'))
+
+
 def test_reindex_skip_calls_progress(tmp_path, make_image):
     """Progress callback fires for unchanged files that are skipped."""
     from mediasearch.config import Config

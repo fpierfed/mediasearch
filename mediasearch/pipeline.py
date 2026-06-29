@@ -171,6 +171,9 @@ def _process(
         _clear_mlx_cache()
         return 1
 
+    if mf.media_type != 'video':
+        raise ValueError(f"Unsupported media type '{mf.media_type}'")
+
     # Video: stream frames, embed in batches, write incrementally
     frames_iter = sample_video(
         mf.path,
