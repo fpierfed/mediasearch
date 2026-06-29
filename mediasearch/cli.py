@@ -22,15 +22,12 @@ class MediaType(str, Enum):
 
 def _config(index_path: Optional[Path], model: Optional[str] = None) -> Config:
     """Create a configuration object using the given index path and model."""
-    c = Config()
-    if index_path is not None:
-        c.index_path = index_path
-    c.model = model or DEFAULT_MODEL
     try:
-        # validate the model is known (raises ValueError otherwise)
-        c.embed_dim
+        c = Config(model=model or DEFAULT_MODEL)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
+    if index_path is not None:
+        c.index_path = index_path
     return c
 
 

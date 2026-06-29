@@ -1,25 +1,64 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-MODEL_DIMS = {
+
+@dataclass(frozen=True, slots=True)
+class ModelSpec:
+    dim: int
+    input_size: int
+
+
+MODEL_SPECS = {
     # SigLIP 2 xlarge / SO400M (~400M params, 1152-dim)
-    'mlx-community/siglip2-so400m-patch16-384': 1152,  # default · 384 px
-    'google/siglip2-so400m-patch16-256': 1152,  # faster  · 256 px
-    'google/siglip2-so400m-patch16-512': 1152,  # precise · 512 px
+    'mlx-community/siglip2-so400m-patch16-384': ModelSpec(
+        dim=1152, input_size=384
+    ),
+    'google/siglip2-so400m-patch16-256': ModelSpec(
+        dim=1152, input_size=256
+    ),
+    'google/siglip2-so400m-patch16-512': ModelSpec(
+        dim=1152, input_size=512
+    ),
     # SigLIP 2 large (~300M params, 1024-dim)
-    'google/siglip2-large-patch16-256': 1024,
-    'google/siglip2-large-patch16-384': 1024,
-    'google/siglip2-large-patch16-512': 1024,
+    'google/siglip2-large-patch16-256': ModelSpec(
+        dim=1024, input_size=256
+    ),
+    'google/siglip2-large-patch16-384': ModelSpec(
+        dim=1024, input_size=384
+    ),
+    'google/siglip2-large-patch16-512': ModelSpec(
+        dim=1024, input_size=512
+    ),
     # SigLIP 2 base / medium (~86M params, 768-dim)
-    'google/siglip2-base-patch16-384': 768,
-    'google/siglip2-base-patch16-256': 768,
-    'google/siglip2-base-patch16-512': 768,
-    'mlx-community/siglip2-base-patch16-224-8bit': 768,  # 8-bit quantised
+    'google/siglip2-base-patch16-384': ModelSpec(
+        dim=768, input_size=384
+    ),
+    'google/siglip2-base-patch16-256': ModelSpec(
+        dim=768, input_size=256
+    ),
+    'google/siglip2-base-patch16-512': ModelSpec(
+        dim=768, input_size=512
+    ),
+    'mlx-community/siglip2-base-patch16-224-8bit': ModelSpec(
+        dim=768, input_size=224
+    ),
     # SigLIP 1 legacy (pre-converted by mlx-community)
-    'mlx-community/siglip-so400m-patch14-384': 1152,
-    'mlx-community/siglip-so400m-patch14-224': 1152,
-    'mlx-community/siglip-large-patch16-384': 1024,
-    'mlx-community/siglip-large-patch16-384-4bit': 1024,  # 4-bit quantised
+    'mlx-community/siglip-so400m-patch14-384': ModelSpec(
+        dim=1152, input_size=384
+    ),
+    'mlx-community/siglip-so400m-patch14-224': ModelSpec(
+        dim=1152, input_size=224
+    ),
+    'mlx-community/siglip-large-patch16-384': ModelSpec(
+        dim=1024, input_size=384
+    ),
+    'mlx-community/siglip-large-patch16-384-4bit': ModelSpec(
+        dim=1024, input_size=384
+    ),
+}
+MODEL_DIMS = {model: spec.dim for model, spec in MODEL_SPECS.items()}
+MODEL_INPUT_SIZES = {
+    model: spec.input_size for model, spec in MODEL_SPECS.items()
 }
 DEFAULT_MODEL = 'google/siglip2-base-patch16-256'
 DEFAULT_TEXT_MODEL = 'mlx-community/multilingual-e5-base-mlx'
@@ -32,9 +71,9 @@ DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-small-mlx'
 def embed_dim_for(model: str) -> int:
     """Return the embedding dimension for the given model ID."""
     try:
-        return MODEL_DIMS[model]
+        return MODEL_SPECS[model].dim
     except KeyError:
-        known = ', '.join(sorted(MODEL_DIMS))
+        known = ', '.join(sorted(MODEL_SPECS))
         raise ValueError(
             f"Unknown model '{model}'. Known models: {known}"
         ) from None
@@ -42,31 +81,15 @@ def embed_dim_for(model: str) -> int:
 
 # Native input resolution (px) each visual model embeds at. Used to bound the
 # size we decode images/frames to, since decoding larger than the model input
-# is wasted memory. Parsed from the trailing patch size in the model id.
-MODEL_INPUT_SIZES = {
-    'mlx-community/siglip2-so400m-patch16-384': 384,
-    'google/siglip2-so400m-patch16-256': 256,
-    'google/siglip2-so400m-patch16-512': 512,
-    'google/siglip2-large-patch16-256': 256,
-    'google/siglip2-large-patch16-384': 384,
-    'google/siglip2-large-patch16-512': 512,
-    'google/siglip2-base-patch16-384': 384,
-    'google/siglip2-base-patch16-256': 256,
-    'google/siglip2-base-patch16-512': 512,
-    'mlx-community/siglip2-base-patch16-224-8bit': 224,
-    'mlx-community/siglip-so400m-patch14-384': 384,
-    'mlx-community/siglip-so400m-patch14-224': 224,
-    'mlx-community/siglip-large-patch16-384': 384,
-    'mlx-community/siglip-large-patch16-384-4bit': 384,
-}
+# is wasted memory.
 
 
 def model_input_size_for(model: str) -> int:
     """Return the native input resolution (px) for the given model ID."""
     try:
-        return MODEL_INPUT_SIZES[model]
+        return MODEL_SPECS[model].input_size
     except KeyError:
-        known = ', '.join(sorted(MODEL_INPUT_SIZES))
+        known = ', '.join(sorted(MODEL_SPECS))
         raise ValueError(
             f"Unknown model '{model}'. Known models: {known}"
         ) from None
@@ -74,7 +97,7 @@ def model_input_size_for(model: str) -> int:
 
 EMBED_DIM = embed_dim_for(
     DEFAULT_MODEL
-)  # 1152; kept for backward-compatible imports
+)  # kept for backward-compatible imports
 TEXT_EMBED_DIM = 768
 DEFAULT_INDEX_PATH = Path.home() / '.mediasearch' / 'index'
 

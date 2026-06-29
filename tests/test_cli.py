@@ -127,6 +127,19 @@ def test_bad_model_is_rejected(tmp_path, monkeypatch):
     assert 'nope' in r.output or 'Unknown model' in r.output
 
 
+def test_config_uses_selected_model_for_media_caps(tmp_path):
+    """CLI config derives default media caps from the selected model."""
+    from mediasearch.cli import _config
+
+    config = _config(
+        tmp_path / 'idx', model='google/siglip2-base-patch16-512'
+    )
+
+    assert config.model == 'google/siglip2-base-patch16-512'
+    assert config.image_max_size == 512
+    assert config.frame_max_size == 512
+
+
 def test_dim_mismatch_without_reindex_errors(
     tmp_path, make_image, monkeypatch
 ):
