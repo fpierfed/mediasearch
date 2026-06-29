@@ -192,11 +192,35 @@ default, change `DEFAULT_MODEL` in `mediasearch/config.py`.
 ## Tuning (for slower machines / larger libraries)
 
 Defaults target a 16 GB Apple Silicon Mac: frame interval 2.0s, dedup threshold 5,
-batch size 16, model `siglip2-so400m-patch16-384`. If ingest is too slow, switch to the
-faster `base` model as shown above.
+batch size 16, model `siglip2-base-patch16-256`. If ingest is too slow, raise
+`--frame-interval` or switch models with `--model` as shown above.
 
 Video frames are deduplicated with a perceptual color hash before embedding, so static
 clips cost far fewer vectors than their raw frame count.
+
+## Memory tuning
+
+The default visual model is `google/siglip2-base-patch16-256`, so still images and
+video frames are decoded down to a 256 px longer edge before embedding (the decoder
+scales in hardware; the model would downsample anyway). This keeps batches bounded
+even for 4K and 8K source media. The caps default to the selected model's input size
+and can be overridden with `--image-max-size` / `--frame-max-size`.
+
+For the lowest indexing memory:
+
+```bash
+mediasearch index ~/Pictures ~/Movies \
+  --batch-size 1 \
+  --frame-interval 5 \
+  --dedup-threshold 10 \
+  --image-max-size 224 \
+  --frame-max-size 224 \
+  --no-audio
+```
+
+Use `--no-audio` for visual-only indexing. Audio transcript indexing loads a Whisper
+model and a text-embedding model; keeping audio disabled is the largest single memory
+reduction for video-heavy libraries.
 
 ## Development
 

@@ -189,7 +189,10 @@ def search_clip(
     try:
         frames = list(
             sample_video(
-                Path(path), config.frame_interval, config.dedup_threshold
+                Path(path),
+                config.frame_interval,
+                config.dedup_threshold,
+                config.frame_max_size,
             )
         )
     except Exception:

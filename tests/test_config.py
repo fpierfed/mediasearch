@@ -80,3 +80,35 @@ def test_embed_dim_unknown_model_raises():
 
     with pytest.raises(ValueError):
         embed_dim_for('not-a-real-model')
+
+
+def test_model_input_size_for_known_models():
+    from mediasearch.config import model_input_size_for
+
+    assert model_input_size_for('google/siglip2-base-patch16-256') == 256
+    assert model_input_size_for('google/siglip2-base-patch16-512') == 512
+    assert (
+        model_input_size_for('mlx-community/siglip2-base-patch16-224-8bit')
+        == 224
+    )
+    assert (
+        model_input_size_for('mlx-community/siglip2-so400m-patch16-384') == 384
+    )
+
+
+def test_config_defaults_bound_media_to_default_model_size():
+    from mediasearch.config import Config
+
+    c = Config()
+    assert c.image_max_size == 256
+    assert c.frame_max_size == 256
+    assert c.index_audio is True
+
+
+def test_config_explicit_media_caps_override_model_size():
+    from mediasearch.config import Config
+
+    c = Config(image_max_size=384, frame_max_size=512, index_audio=False)
+    assert c.image_max_size == 384
+    assert c.frame_max_size == 512
+    assert c.index_audio is False

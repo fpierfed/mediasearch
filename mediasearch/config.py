@@ -40,6 +40,38 @@ def embed_dim_for(model: str) -> int:
         ) from None
 
 
+# Native input resolution (px) each visual model embeds at. Used to bound the
+# size we decode images/frames to, since decoding larger than the model input
+# is wasted memory. Parsed from the trailing patch size in the model id.
+MODEL_INPUT_SIZES = {
+    'mlx-community/siglip2-so400m-patch16-384': 384,
+    'google/siglip2-so400m-patch16-256': 256,
+    'google/siglip2-so400m-patch16-512': 512,
+    'google/siglip2-large-patch16-256': 256,
+    'google/siglip2-large-patch16-384': 384,
+    'google/siglip2-large-patch16-512': 512,
+    'google/siglip2-base-patch16-384': 384,
+    'google/siglip2-base-patch16-256': 256,
+    'google/siglip2-base-patch16-512': 512,
+    'mlx-community/siglip2-base-patch16-224-8bit': 224,
+    'mlx-community/siglip-so400m-patch14-384': 384,
+    'mlx-community/siglip-so400m-patch14-224': 224,
+    'mlx-community/siglip-large-patch16-384': 384,
+    'mlx-community/siglip-large-patch16-384-4bit': 384,
+}
+
+
+def model_input_size_for(model: str) -> int:
+    """Return the native input resolution (px) for the given model ID."""
+    try:
+        return MODEL_INPUT_SIZES[model]
+    except KeyError:
+        known = ', '.join(sorted(MODEL_INPUT_SIZES))
+        raise ValueError(
+            f"Unknown model '{model}'. Known models: {known}"
+        ) from None
+
+
 EMBED_DIM = embed_dim_for(
     DEFAULT_MODEL
 )  # 1152; kept for backward-compatible imports
@@ -75,16 +107,29 @@ class Config:
     audio_model: str = DEFAULT_AUDIO_MODEL
     frame_interval: float = 2.0
     dedup_threshold: int = 5
-    # Cap the longer edge of decoded video frames. SigLIP downsamples to
-    # <=512 px regardless, so decoding larger is wasted memory: a 4K RGB
-    # frame is ~33 MB vs ~0.8 MB at 512 px, and a batch holds batch_size of
-    # them at once. The decoder scales in hardware, preserving aspect ratio.
-    frame_max_size: int = 512
+    # Cap the longer edge of decoded still images / video frames before
+    # embedding. SigLIP downsamples to its native input size regardless, so
+    # decoding larger is wasted memory: a 4K RGB frame is ~33 MB vs ~0.2 MB at
+    # 256 px, and a batch holds batch_size of them at once. When left None,
+    # both default to the selected model's input size in __post_init__.
+    image_max_size: int | None = None
+    frame_max_size: int | None = None
     batch_size: int = 16
     top_k: int = 20
+    # Index audio transcripts for videos. Disabling it (CLI --no-audio) skips
+    # loading the Whisper and text-embedding models entirely — the single
+    # largest memory reduction for video-heavy libraries.
+    index_audio: bool = True
     fts_score_k: float = (
         10.0  # BM25 half-saturation constant for score normalisation
     )
+
+    def __post_init__(self) -> None:
+        model_size = model_input_size_for(self.model)
+        if self.image_max_size is None:
+            self.image_max_size = model_size
+        if self.frame_max_size is None:
+            self.frame_max_size = model_size
 
     @property
     def embed_dim(self) -> int:

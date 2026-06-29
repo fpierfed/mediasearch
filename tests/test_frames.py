@@ -50,6 +50,15 @@ def test_sample_video_dedups_two_scenes(sample_video):
     assert len(kept) >= 2
 
 
+def test_extract_frames_yields_rgb_frames_after_pool(sample_video):
+    """Frames are still valid RGB images after the yield moved past the
+    autorelease pool."""
+    frames = list(extract_frames(sample_video, interval=2.0, max_size=32))
+    assert len(frames) >= 2
+    assert all(f.image.mode == 'RGB' for f in frames)
+    assert all(max(f.image.size) <= 32 for f in frames)
+
+
 def test_dedup_is_lazy():
     """dedup does not consume more input than needed for first yield."""
     consumed = []

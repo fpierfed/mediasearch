@@ -184,3 +184,28 @@ def test_search_clip_no_frames(tmp_path, make_image, monkeypatch):
 
     result = search_clip(lib / 'dummy.mp4', config, FakeEmbedder(), store)
     assert result == []
+
+
+def test_search_clip_passes_frame_max_size(tmp_path, monkeypatch):
+    from mediasearch.config import Config
+    from mediasearch.embedder import FakeEmbedder
+    from mediasearch.search import search_clip
+    from mediasearch.frames import Frame
+    from PIL import Image
+
+    seen = {}
+
+    def fake_sample_video(path, interval, dedup_threshold, max_size=None):
+        seen['max_size'] = max_size
+        return [Frame(Image.new('RGB', (8, 8)), 0.0, 0)]
+
+    class EmptyStore:
+        def search(self, vec, top_k, media_type=None):
+            return []
+
+    monkeypatch.setattr('mediasearch.search.sample_video', fake_sample_video)
+
+    config = Config(frame_max_size=224)
+    search_clip(tmp_path / 'clip.mp4', config, FakeEmbedder(), EmptyStore())
+
+    assert seen['max_size'] == 224

@@ -66,7 +66,13 @@ class FakeEmbedder(Embedder):
     def embed_images(self, images: list[Image.Image]) -> np.ndarray:
         """Return fake, deterministic embeddings for a list of images."""
         v = np.stack(
-            [self._vec(b'img:' + im.convert('RGB').tobytes()) for im in images]
+            [
+                self._vec(
+                    b'img:'
+                    + (im if im.mode == 'RGB' else im.convert('RGB')).tobytes()
+                )
+                for im in images
+            ]
         )
         return l2_normalize(v)
 
@@ -114,7 +120,8 @@ class MLXSigLIPEmbedder(Embedder):
         out = []
         for i in range(0, len(images), self.batch_size):
             batch = [
-                im.convert('RGB') for im in images[i : i + self.batch_size]
+                im if im.mode == 'RGB' else im.convert('RGB')
+                for im in images[i : i + self.batch_size]
             ]
             inputs = self.processor(images=batch, return_tensors='mlx')
             embeds = self.model.get_image_features(

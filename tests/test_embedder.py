@@ -216,6 +216,32 @@ def test_mlx_siglip_smoke(monkeypatch):
     assert not np.allclose(img_out[0], img_out[1])
 
 
+def test_siglip_embedder_reuses_rgb_images(monkeypatch):
+    """embed_images passes already-RGB images through without copying."""
+    from unittest.mock import MagicMock
+    from mediasearch.embedder import MLXSigLIPEmbedder
+
+    mock_load = MagicMock()
+    mock_model = MagicMock()
+    mock_model.get_image_features.return_value = np.ones(
+        (1, 768), dtype=np.float32
+    )
+    captured = {}
+
+    def processor(**kwargs):
+        captured['images'] = kwargs['images']
+        return {'pixel_values': np.ones((1, 3, 8, 8), dtype=np.float32)}
+
+    mock_load.return_value = (mock_model, processor)
+    monkeypatch.setattr('mediasearch.embedder.mlx_load', mock_load)
+
+    image = Image.new('RGB', (8, 8), (1, 2, 3))
+    embedder = MLXSigLIPEmbedder('test', batch_size=1, dim=768)
+    embedder.embed_images([image])
+
+    assert captured['images'][0] is image
+
+
 def test_mlx_siglip_dimension_mismatch(monkeypatch):
     """MLXSigLIPEmbedder.embed_texts raises ValueError on dimension
     mismatch.

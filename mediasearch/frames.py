@@ -92,7 +92,13 @@ def extract_frames(
     while next_t <= duration_sec:
         # 600 timescale is a standard safe value for video timing
         time = CMTimeMakeWithSeconds(next_t, 600)
+        frame: Frame | None = None
 
+        # Build the frame inside the pool so the CGImage and its backing data
+        # are released as the pool drains. Yield *after* the pool exits: a
+        # consumer that pauses between frames (e.g. while embedding a batch)
+        # must not hold the autorelease pool open, which would pin every
+        # native allocation made inside it.
         with objc.autorelease_pool():
             try:
                 cg_image, error = (
@@ -102,13 +108,16 @@ def extract_frames(
                 )
                 if cg_image:
                     pil_image = _cgimage_to_pil(cg_image)
-                    yield Frame(
+                    frame = Frame(
                         image=pil_image, timestamp=next_t, frame_idx=idx
                     )
             except Exception:
                 logger.exception(
                     'Failed to extract frame at %ss from %s', next_t, path
                 )
+
+        if frame is not None:
+            yield frame
 
         idx += 1
         next_t += interval

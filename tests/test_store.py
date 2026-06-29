@@ -231,3 +231,59 @@ def test_esc_rejects_control_characters():
     _esc("/path/with'quote")  # single quote — doubled, not rejected
     with pytest.raises(ValueError, match='Unsafe character'):
         _esc('/path/\nbreak')
+
+
+def test_add_embeddings_from_arrays(tmp_path):
+    from mediasearch.store import Store
+
+    store = Store(tmp_path / 'idx', dim=4)
+    vectors = np.asarray([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float32)
+    metadata = [
+        {
+            'id': 'a',
+            'media_path': '/a.png',
+            'media_type': 'image',
+            'timestamp': 0.0,
+            'frame_idx': 0,
+        },
+        {
+            'id': 'b',
+            'media_path': '/b.png',
+            'media_type': 'image',
+            'timestamp': 0.0,
+            'frame_idx': 0,
+        },
+    ]
+
+    store.add_embeddings_from_arrays(metadata, vectors)
+
+    assert store.stats()['vectors'] == 2
+    assert store.count_vectors('/a.png') == 1
+
+
+def test_manifest_statuses_returns_compact_rows(tmp_path):
+    from mediasearch.store import Store
+
+    store = Store(tmp_path / 'idx')
+    store.set_file(
+        path='/a.png',
+        mtime=1.0,
+        size=10,
+        media_type='image',
+        status='done',
+        n_vectors=1,
+    )
+    store.set_file(
+        path='/b.mp4',
+        mtime=2.0,
+        size=20,
+        media_type='video',
+        status='pending',
+        n_vectors=0,
+    )
+
+    manifest = store.manifest_statuses()
+
+    assert manifest['/a.png'].status == 'done'
+    assert manifest['/a.png'].mtime == 1.0
+    assert manifest['/b.mp4'].size == 20

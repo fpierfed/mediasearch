@@ -131,11 +131,40 @@ def index(
     model: Optional[str] = typer.Option(
         None, '--model', help='embedding model id'
     ),
+    batch_size: Optional[int] = typer.Option(
+        None, '--batch-size', min=1, help='Embedding batch size'
+    ),
+    frame_interval: Optional[float] = typer.Option(
+        None, '--frame-interval', min=0.1, help='Seconds between video frames'
+    ),
+    dedup_threshold: Optional[int] = typer.Option(
+        None, '--dedup-threshold', min=0, help='Frame dedup hamming distance'
+    ),
+    image_max_size: Optional[int] = typer.Option(
+        None, '--image-max-size', min=1, help='Cap decoded still-image edge'
+    ),
+    frame_max_size: Optional[int] = typer.Option(
+        None, '--frame-max-size', min=1, help='Cap decoded video-frame edge'
+    ),
+    index_audio: bool = typer.Option(
+        True, '--audio/--no-audio', help='Index video transcripts'
+    ),
 ) -> None:
     """Index directories containing media files for semantic search."""
     from tqdm import tqdm
 
     config = _config(index_path, model)
+    if batch_size is not None:
+        config.batch_size = batch_size
+    if frame_interval is not None:
+        config.frame_interval = frame_interval
+    if dedup_threshold is not None:
+        config.dedup_threshold = dedup_threshold
+    if image_max_size is not None:
+        config.image_max_size = image_max_size
+    if frame_max_size is not None:
+        config.frame_max_size = frame_max_size
+    config.index_audio = index_audio
     store = _open_store(config)
     _guard_dim(store, config, reindex=reindex)
     _guard_text_dim(store)

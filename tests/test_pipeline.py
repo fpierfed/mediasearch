@@ -132,6 +132,51 @@ def test_process_audio_success(tmp_path, sample_video, monkeypatch):
     assert rows[1]['end_time'] == 4.5
 
 
+def test_process_audio_writes_transcripts_in_chunks(
+    tmp_path, sample_video, monkeypatch
+):
+    """When given a store, _process_audio embeds and writes in chunks."""
+    import mlx_whisper
+    from mediasearch.config import DEFAULT_AUDIO_MODEL
+    from mediasearch.pipeline import _process_audio
+    from mediasearch.store import Store
+    from mediasearch.walker import MediaFile
+
+    segments = [
+        {'text': f'segment {i}', 'start': float(i), 'end': float(i + 1)}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(
+        mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': segments}
+    )
+
+    vid = tmp_path / 'clip.mp4'
+    vid.write_bytes(sample_video.read_bytes())
+    mf = MediaFile(
+        path=vid, mtime=0.0, size=vid.stat().st_size, media_type='video'
+    )
+    store = Store(tmp_path / 'idx')
+    calls = []
+    original = store.add_transcripts
+
+    def track(rows):
+        calls.append(len(rows))
+        original(rows)
+
+    store.add_transcripts = track
+
+    count = _process_audio(
+        mf,
+        lambda: FakeEmbedder(),
+        audio_model=DEFAULT_AUDIO_MODEL,
+        store=store,
+        batch_size=2,
+    )
+
+    assert count == 5
+    assert calls == [2, 2, 1]
+
+
 def test_process_audio_empty_segments(tmp_path, sample_video, monkeypatch):
     """_process_audio returns [] when transcription yields no segments."""
     import mlx_whisper
@@ -175,6 +220,37 @@ def test_process_audio_failure(tmp_path, sample_video, monkeypatch):
 
     rows = _process_audio(mf, FakeEmbedder(), audio_model=DEFAULT_AUDIO_MODEL)
     assert rows == []  # swallowed, not raised
+
+
+def test_process_image_respects_image_max_size(tmp_path, make_image):
+    """Still images are downscaled to image_max_size before embedding."""
+    from mediasearch.config import Config
+    from mediasearch.pipeline import _process
+    from mediasearch.store import Store
+    from mediasearch.walker import MediaFile
+
+    class RecordingEmbedder(FakeEmbedder):
+        def __init__(self):
+            super().__init__()
+            self.sizes = []
+
+        def embed_images(self, images):
+            self.sizes.extend(im.size for im in images)
+            return super().embed_images(images)
+
+    path = make_image(tmp_path / 'large.jpg', size=(1024, 768))
+    config = Config(image_max_size=128)
+    store = Store(tmp_path / 'idx')
+    embedder = RecordingEmbedder()
+    mf = MediaFile(
+        path=path,
+        mtime=path.stat().st_mtime,
+        size=path.stat().st_size,
+        media_type='image',
+    )
+
+    assert _process(mf, config, embedder, store) == 1
+    assert max(embedder.sizes[0]) <= 128
 
 
 def test_process_no_frames_for_video(tmp_path, monkeypatch):
@@ -256,9 +332,14 @@ def test_text_embedder_factory_resolved_once_for_videos(
     """The factory is resolved lazily and memoised across multiple videos."""
     import mlx_whisper
 
-    # Avoid loading a real whisper model; we only care about the factory.
+    # Non-empty segments so the text embedder is actually needed; a real
+    # whisper model is never loaded. We only care about the factory.
     monkeypatch.setattr(
-        mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': []}
+        mlx_whisper,
+        'transcribe',
+        lambda *a, **kw: {
+            'segments': [{'text': 'hi', 'start': 0.0, 'end': 1.0}]
+        },
     )
 
     lib = tmp_path / 'lib'
@@ -277,6 +358,72 @@ def test_text_embedder_factory_resolved_once_for_videos(
     index(config, FakeEmbedder(), factory, store, [lib])
 
     assert len(calls) == 1  # built once, reused for the second video
+
+
+def test_audio_empty_segments_does_not_resolve_text_embedder(
+    tmp_path, sample_video, monkeypatch
+):
+    """_process_audio defers resolving the factory until segments exist."""
+    import mlx_whisper
+    from mediasearch.config import DEFAULT_AUDIO_MODEL
+    from mediasearch.pipeline import _process_audio
+    from mediasearch.walker import MediaFile
+
+    monkeypatch.setattr(
+        mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': []}
+    )
+    vid = tmp_path / 'clip.mp4'
+    vid.write_bytes(sample_video.read_bytes())
+    mf = MediaFile(
+        path=vid, mtime=0.0, size=vid.stat().st_size, media_type='video'
+    )
+
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return FakeEmbedder()
+
+    rows = _process_audio(mf, factory, audio_model=DEFAULT_AUDIO_MODEL)
+
+    assert rows == []
+    assert calls == []
+
+
+def test_index_no_audio_does_not_transcribe_or_load_text_embedder(
+    tmp_path, sample_video, monkeypatch
+):
+    """With index_audio=False, no transcription and no text embedder load."""
+    import mlx_whisper
+
+    # Track invocations rather than raising: _process_audio swallows
+    # exceptions, so a raising stub would be masked and the test would pass
+    # even without the guard. Recording calls detects the guard directly.
+    transcribe_calls = []
+
+    def tracking_transcribe(*args, **kwargs):
+        transcribe_calls.append(1)
+        return {'segments': []}
+
+    monkeypatch.setattr(mlx_whisper, 'transcribe', tracking_transcribe)
+
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    (lib / 'clip.mp4').write_bytes(sample_video.read_bytes())
+
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return FakeEmbedder()
+
+    config = Config(index_audio=False)
+    store = Store(tmp_path / 'idx')
+    index(config, FakeEmbedder(), factory, store, [lib])
+
+    assert transcribe_calls == []  # never transcribed
+    assert calls == []  # text embedder never loaded
+    assert store.stats()['done'] == 1
 
 
 def test_process_video_writes_incrementally(tmp_path, sample_video):
@@ -298,15 +445,15 @@ def test_process_video_writes_incrementally(tmp_path, sample_video):
     store = Store(tmp_path / 'idx')
     embedder = FakeEmbedder()
 
-    # Track how many times add_embeddings is called
+    # Track how many times the array-write path is called (one call per batch)
     calls = []
-    orig_add = store.add_embeddings
+    orig_add = store.add_embeddings_from_arrays
 
-    def _track(rows):
-        calls.append(len(rows))
-        return orig_add(rows)
+    def _track(metadata, vectors):
+        calls.append(len(metadata))
+        return orig_add(metadata, vectors)
 
-    store.add_embeddings = _track
+    store.add_embeddings_from_arrays = _track
 
     n = _process(mf, config, embedder, store)
     assert n > 0  # some frames embedded

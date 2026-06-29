@@ -6,13 +6,14 @@ from typing import Callable
 
 import mlx.core as mx
 import mlx_whisper
+import numpy as np
 import pillow_heif
 from PIL import Image
 
 from .config import DEFAULT_AUDIO_MODEL, Config
 from .embedder import Embedder
 from .frames import Frame, sample_video
-from .store import Store
+from .store import ManifestStatus, Store
 from .walker import MediaFile, walk
 
 logger = logging.getLogger(__name__)
@@ -22,12 +23,23 @@ pillow_heif.register_heif_opener()
 
 def _process_audio(
     mf: MediaFile,
-    text_embedder: Embedder,
+    text_embedder: Embedder | Callable[[], Embedder],
     audio_model: str = DEFAULT_AUDIO_MODEL,
-) -> list[dict]:
+    store: Store | None = None,
+    batch_size: int = 16,
+) -> list[dict] | int:
     """
-    Transcribe audio from a video file and return transcript rows with
-    embeddings.
+    Transcribe audio from a video file, embed the transcript, and either
+    return the rows (``store=None``) or write them to *store* in chunks and
+    return the row count.
+
+    *text_embedder* may be an :class:`Embedder` or a zero-arg factory. The
+    factory is only invoked once we know there are segments to embed, so a
+    silent or trackless video never loads the text model.
+
+    Segments are embedded and written *batch_size* at a time, and the MLX
+    buffer cache is cleared after each chunk, so a long video's transcript
+    never materialises all of its vectors in memory at once.
     """
     try:
         result = mlx_whisper.transcribe(
@@ -36,26 +48,63 @@ def _process_audio(
         )
         segments = result.get('segments', [])
         if not segments:
-            return []
+            return [] if store is None else 0
 
-        texts = [seg['text'] for seg in segments]
-        vecs = text_embedder.embed_texts(texts)
+        all_rows: list[dict] = []
+        total = 0
+        resolved: Embedder | None = None
 
-        return [
-            {
-                'id': uuid.uuid4().hex,
-                'media_path': str(mf.path),
-                'media_type': 'transcript',
-                'text': seg['text'],
-                'vector': list(vec),
-                'start_time': float(seg['start']),
-                'end_time': float(seg['end']),
-            }
-            for seg, vec in zip(segments, vecs)
-        ]
+        for i in range(0, len(segments), batch_size):
+            chunk = segments[i : i + batch_size]
+            if resolved is None:
+                resolved = (
+                    text_embedder
+                    if isinstance(text_embedder, Embedder)
+                    else text_embedder()
+                )
+            vecs = resolved.embed_texts([seg['text'] for seg in chunk])
+            rows = [
+                {
+                    'id': uuid.uuid4().hex,
+                    'media_path': str(mf.path),
+                    'media_type': 'transcript',
+                    'text': seg['text'],
+                    'vector': list(vec),
+                    'start_time': float(seg['start']),
+                    'end_time': float(seg['end']),
+                }
+                for seg, vec in zip(chunk, vecs)
+            ]
+            if store is None:
+                all_rows.extend(rows)
+            else:
+                store.add_transcripts(rows)
+            total += len(rows)
+            mx.clear_cache()
+
+        return all_rows if store is None else total
     except Exception:
         logger.error('Audio processing failed for %s', mf.path, exc_info=True)
-        return []
+        return [] if store is None else 0
+
+
+def _load_bounded_rgb_image(
+    path: Path, max_size: int | None
+) -> Image.Image:
+    """
+    Open *path* as an RGB image whose longer edge is at most *max_size* px.
+
+    For JPEGs, ``Image.draft`` lets the decoder downscale during decode (cheap,
+    avoids ever materialising the full-resolution buffer). Any remaining excess
+    is trimmed with a high-quality thumbnail.
+    """
+    with Image.open(path) as im:
+        if max_size is not None and im.format == 'JPEG':
+            im.draft('RGB', (max_size, max_size))
+        img = im.convert('RGB')
+    if max_size is not None and max(img.size) > max_size:
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+    return img
 
 
 def _process(
@@ -70,20 +119,19 @@ def _process(
     length.
     """
     if mf.media_type == 'image':
-        with Image.open(mf.path) as im:
-            img = im.convert('RGB')
+        img = _load_bounded_rgb_image(mf.path, config.image_max_size)
         vec = embedder.embed_images([img])[0]
-        store.add_embeddings(
+        store.add_embeddings_from_arrays(
             [
                 {
                     'id': uuid.uuid4().hex,
                     'media_path': str(mf.path),
                     'media_type': 'image',
-                    'vector': list(vec),
                     'timestamp': 0.0,
                     'frame_idx': 0,
                 }
-            ]
+            ],
+            np.asarray([vec], dtype=np.float32),
         )
         # Release MLX's Metal buffer cache so it does not accumulate across
         # files over a long run.
@@ -93,23 +141,22 @@ def _process(
     def _embed_and_write(frames: list[Frame]) -> int:
         """Embed a batch of frames, write the rows, and free MLX buffers."""
         vecs = embedder.embed_images([f.image for f in frames])
-        rows = [
+        metadata = [
             {
                 'id': uuid.uuid4().hex,
                 'media_path': str(mf.path),
                 'media_type': 'video',
-                'vector': list(v),
                 'timestamp': float(f.timestamp),
                 'frame_idx': int(f.frame_idx),
             }
-            for f, v in zip(frames, vecs)
+            for f in frames
         ]
-        store.add_embeddings(rows)
+        store.add_embeddings_from_arrays(metadata, vecs)
         # Clear per batch (not just per file): a single long video can stream
         # thousands of frames, and the Metal cache would otherwise grow for
         # the whole video before being released.
         mx.clear_cache()
-        return len(rows)
+        return len(metadata)
 
     # Video: stream frames, embed in batches, write incrementally
     frames_iter = sample_video(
@@ -134,10 +181,14 @@ def _process(
     return total
 
 
-def _unchanged(prev: dict, mf: MediaFile) -> bool:
+def _unchanged(prev: dict | ManifestStatus, mf: MediaFile) -> bool:
     """
     Check if a file is unchanged compared to its previously indexed state.
+
+    Accepts either a full manifest dict or a compact :class:`ManifestStatus`.
     """
+    prev_mtime = prev['mtime'] if isinstance(prev, dict) else prev.mtime
+    prev_size = prev['size'] if isinstance(prev, dict) else prev.size
     # Use math.isclose for mtime because the value round-trips through
     # PyArrow float64 in LanceDB and may differ by 1 ULP from the live
     # os.stat().st_mtime — exact == would cause false-dirty detection.
@@ -145,8 +196,8 @@ def _unchanged(prev: dict, mf: MediaFile) -> bool:
     # on APFS/HFS+ (nanosecond resolution) while tolerating the coarser
     # precision reported by some network filesystems (SMB, NFS).
     return (
-        math.isclose(prev['mtime'], mf.mtime, rel_tol=1e-9, abs_tol=1e-3)
-        and prev['size'] == mf.size
+        math.isclose(prev_mtime, mf.mtime, rel_tol=1e-9, abs_tol=1e-3)
+        and prev_size == mf.size
     )
 
 
@@ -180,7 +231,7 @@ def index(
             resolved_text_embedder = text_embedder()  # type: ignore[operator]
         return resolved_text_embedder
 
-    manifest = store.manifest()
+    manifest = store.manifest_statuses()
     for mf in walk([Path(r) for r in roots]):
         key = str(mf.path)
         prev = manifest.get(key)
@@ -191,7 +242,7 @@ def index(
         if (
             not reindex
             and prev is not None
-            and prev['status'] in ('done', 'error')
+            and prev.status in ('done', 'error')
             and _unchanged(prev, mf)
         ):
             if progress:
@@ -208,11 +259,14 @@ def index(
         )
         try:
             n_vectors = _process(mf, config, embedder, store)
-            if mf.media_type == 'video':
-                transcript_rows = _process_audio(
-                    mf, get_text_embedder(), config.audio_model
+            if mf.media_type == 'video' and config.index_audio:
+                _process_audio(
+                    mf,
+                    get_text_embedder,
+                    config.audio_model,
+                    store=store,
+                    batch_size=config.batch_size,
                 )
-                store.add_transcripts(transcript_rows)
 
             store.set_file(
                 path=key,

@@ -1,4 +1,5 @@
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import lancedb
@@ -7,6 +8,19 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from .config import EMBED_DIM, TEXT_EMBED_DIM
+
+
+@dataclass(frozen=True, slots=True)
+class ManifestStatus:
+    """
+    Compact per-file tracking row used during indexing. Holds only the fields
+    the skip/resume decision needs, so the in-memory manifest of a large
+    library is a few small slotted objects per file instead of full dicts.
+    """
+
+    mtime: float
+    size: int
+    status: str
 
 
 def _esc(value: str) -> str:
@@ -31,6 +45,20 @@ def _esc(value: str) -> str:
                 f'user-supplied strings.'
             )
     return value.replace("'", "''")
+
+
+def _fixed_size_vector_array(vectors: np.ndarray, dim: int) -> pa.Array:
+    """
+    Build a PyArrow fixed-size-list array from a 2-D NumPy array of vectors,
+    matching the embeddings table's ``list_(float32, dim)`` column type.
+    """
+    arr = np.asarray(vectors, dtype=np.float32)
+    if arr.ndim != 2 or arr.shape[1] != dim:
+        raise ValueError(
+            f'Expected vectors with shape (n, {dim}), got {arr.shape}'
+        )
+    flat = pa.array(arr.reshape(-1), type=pa.float32())
+    return pa.FixedSizeListArray.from_arrays(flat, dim)
 
 
 def _normalize_scores(
@@ -151,6 +179,24 @@ class Store:
         rows = self.files.to_arrow().to_pylist()
         return {r['path']: r for r in rows}
 
+    def manifest_statuses(self) -> dict[str, ManifestStatus]:
+        """
+        Like :meth:`manifest`, but returns only the compact fields needed for
+        the skip/resume check. Reads just those columns and stores them in
+        slotted dataclasses to keep memory low for large libraries.
+        """
+        table = self.files.to_arrow().select(
+            ['path', 'mtime', 'size', 'status']
+        )
+        return {
+            row['path']: ManifestStatus(
+                mtime=float(row['mtime']),
+                size=int(row['size']),
+                status=row['status'],
+            )
+            for row in table.to_pylist()
+        }
+
     def set_file(
         self,
         *,
@@ -198,6 +244,29 @@ class Store:
         if not rows:
             return
         self.emb.add(rows)
+
+    def add_embeddings_from_arrays(
+        self, metadata: list[dict], vectors: np.ndarray
+    ) -> None:
+        """
+        Add visual embeddings from a NumPy array of vectors plus per-row
+        *metadata*. Avoids converting each compact float32 vector into a large
+        Python list before the write — the array is handed to PyArrow directly.
+        """
+        if not metadata:
+            return
+        table = pa.table(
+            {
+                'id': [r['id'] for r in metadata],
+                'media_path': [r['media_path'] for r in metadata],
+                'media_type': [r['media_type'] for r in metadata],
+                'vector': _fixed_size_vector_array(vectors, self.dim),
+                'timestamp': [float(r['timestamp']) for r in metadata],
+                'frame_idx': [int(r['frame_idx']) for r in metadata],
+            },
+            schema=self._emb_schema(),
+        )
+        self.emb.add(table)
 
     def add_transcripts(self, rows: list[dict]) -> None:
         """Add rows to the audio transcripts table."""

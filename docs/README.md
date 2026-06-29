@@ -94,6 +94,27 @@ Two SigLIP 2 sizes are supported.  Pick one with `--model`:
 The model and its embedding dimension are **paired** — switching models requires
 `--reindex`.  mediasearch detects mismatches and tells you what to do.
 
+## Memory tuning
+
+Still images and video frames are decoded down to the model's input size (256 px for
+the default `siglip2-base-patch16-256`) before embedding, so batches stay bounded even
+for 4K/8K media. Override with `--image-max-size` / `--frame-max-size`.
+
+For the lowest indexing memory:
+
+```bash
+mediasearch index ~/Pictures ~/Movies \
+  --batch-size 1 \
+  --frame-interval 5 \
+  --dedup-threshold 10 \
+  --image-max-size 224 \
+  --frame-max-size 224 \
+  --no-audio
+```
+
+`--no-audio` skips loading the Whisper and text-embedding models entirely — the largest
+single memory reduction for video-heavy libraries.
+
 ## Troubleshooting
 
 **`Could not load model ... mediasearch needs Apple Silicon + MLX`**

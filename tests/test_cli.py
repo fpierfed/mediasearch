@@ -324,3 +324,64 @@ def test_search_empty_index_emits_no_results(tmp_path, monkeypatch):
     r = runner.invoke(app, ['search', 'query', '--index-path', str(idx)])
     assert r.exit_code == 0, r.output
     assert 'No results.' in r.output
+
+
+def test_index_cli_applies_memory_knobs(tmp_path, make_image, monkeypatch):
+    """The index command threads memory knobs through to the Config."""
+    from mediasearch import pipeline
+
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    make_image(lib / 'a.png')
+
+    seen = {}
+
+    def fake_index(
+        config,
+        embedder,
+        text_embedder,
+        store,
+        roots,
+        reindex=False,
+        progress=None,
+    ):
+        seen['batch_size'] = config.batch_size
+        seen['frame_interval'] = config.frame_interval
+        seen['dedup_threshold'] = config.dedup_threshold
+        seen['image_max_size'] = config.image_max_size
+        seen['frame_max_size'] = config.frame_max_size
+        seen['index_audio'] = config.index_audio
+
+    monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
+    monkeypatch.setattr(pipeline, 'index', fake_index)
+
+    result = runner.invoke(
+        app,
+        [
+            'index',
+            str(lib),
+            '--index-path',
+            str(tmp_path / 'idx'),
+            '--batch-size',
+            '2',
+            '--frame-interval',
+            '5',
+            '--dedup-threshold',
+            '9',
+            '--image-max-size',
+            '224',
+            '--frame-max-size',
+            '224',
+            '--no-audio',
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen == {
+        'batch_size': 2,
+        'frame_interval': 5.0,
+        'dedup_threshold': 9,
+        'image_max_size': 224,
+        'frame_max_size': 224,
+        'index_audio': False,
+    }
