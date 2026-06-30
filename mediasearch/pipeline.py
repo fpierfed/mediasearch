@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 import time
 
+import mlx.core as mx
 import numpy as np
 import pillow_heif
 from PIL import Image
@@ -21,16 +22,6 @@ from .walker import MediaFile, walk
 logger = logging.getLogger(__name__)
 
 pillow_heif.register_heif_opener()
-
-
-def _clear_mlx_cache() -> None:
-    """Release MLX buffers when MLX is available."""
-    try:
-        import mlx.core as mx
-
-        mx.clear_cache()
-    except Exception:
-        logger.debug('Failed to clear MLX cache', exc_info=True)
 
 
 def _has_audio_track(path: Path) -> bool:
@@ -122,7 +113,7 @@ def _process_audio(
             else:
                 store.add_transcripts(rows)
             total += len(rows)
-            _clear_mlx_cache()
+            mx.clear_cache()
 
         return all_rows if store is None else total
     except Exception:
@@ -166,7 +157,7 @@ def _embed_and_write_frames(
     # Clear per batch (not just per file): a single long video can stream
     # thousands of frames, and the Metal cache would otherwise grow for
     # the whole video before being released.
-    _clear_mlx_cache()
+    mx.clear_cache()
     return len(metadata)
 
 
@@ -198,7 +189,7 @@ def _process(
         )
         # Release MLX's Metal buffer cache so it does not accumulate across
         # files over a long run.
-        _clear_mlx_cache()
+        mx.clear_cache()
         return 1
 
     if mf.media_type != 'video':
