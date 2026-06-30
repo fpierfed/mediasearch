@@ -13,32 +13,16 @@ MODEL_SPECS = {
     'mlx-community/siglip2-so400m-patch16-384': ModelSpec(
         dim=1152, input_size=384
     ),
-    'google/siglip2-so400m-patch16-256': ModelSpec(
-        dim=1152, input_size=256
-    ),
-    'google/siglip2-so400m-patch16-512': ModelSpec(
-        dim=1152, input_size=512
-    ),
+    'google/siglip2-so400m-patch16-256': ModelSpec(dim=1152, input_size=256),
+    'google/siglip2-so400m-patch16-512': ModelSpec(dim=1152, input_size=512),
     # SigLIP 2 large (~300M params, 1024-dim)
-    'google/siglip2-large-patch16-256': ModelSpec(
-        dim=1024, input_size=256
-    ),
-    'google/siglip2-large-patch16-384': ModelSpec(
-        dim=1024, input_size=384
-    ),
-    'google/siglip2-large-patch16-512': ModelSpec(
-        dim=1024, input_size=512
-    ),
+    'google/siglip2-large-patch16-256': ModelSpec(dim=1024, input_size=256),
+    'google/siglip2-large-patch16-384': ModelSpec(dim=1024, input_size=384),
+    'google/siglip2-large-patch16-512': ModelSpec(dim=1024, input_size=512),
     # SigLIP 2 base / medium (~86M params, 768-dim)
-    'google/siglip2-base-patch16-384': ModelSpec(
-        dim=768, input_size=384
-    ),
-    'google/siglip2-base-patch16-256': ModelSpec(
-        dim=768, input_size=256
-    ),
-    'google/siglip2-base-patch16-512': ModelSpec(
-        dim=768, input_size=512
-    ),
+    'google/siglip2-base-patch16-384': ModelSpec(dim=768, input_size=384),
+    'google/siglip2-base-patch16-256': ModelSpec(dim=768, input_size=256),
+    'google/siglip2-base-patch16-512': ModelSpec(dim=768, input_size=512),
     'mlx-community/siglip2-base-patch16-224-8bit': ModelSpec(
         dim=768, input_size=224
     ),
@@ -65,7 +49,14 @@ DEFAULT_TEXT_MODEL = 'mlx-community/multilingual-e5-base-mlx'
 # whisper-small (~244M params) keeps the resident transcription model far
 # smaller than large-v3-turbo (~809M) — a large RSS saving since this model
 # stays loaded alongside the visual and text embedders for the whole run.
-DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-small-mlx'
+# DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-small-mlx'
+
+# whisper-base (~74M params) Roughly a 3x memory reduction compared to  small
+# It still yields acceptable results for common languages like Spanish, French,
+# German, etc. with clear audio, but you will notice a drop  in accuracy
+# compared to  small —especially on less common languages, heavy accents, or
+# background noise. It's the best compromise if you must go smaller.
+DEFAULT_AUDIO_MODEL = 'mlx-community/whisper-base-mlx'
 
 
 def embed_dim_for(model: str) -> int:
