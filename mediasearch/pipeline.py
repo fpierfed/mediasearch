@@ -38,7 +38,8 @@ def _has_audio_track(path: Path) -> bool:
             return False
         return len(asset.tracksWithMediaType_(AVMediaTypeAudio)) > 0
     except Exception:
-        # Fallback to true if we fail to check, so we still attempt transcription
+        # Fallback to true if we fail to check, so we still attempt
+        # transcription
         return True
 
 
@@ -242,9 +243,9 @@ def _unchanged(prev: dict | ManifestStatus, mf: MediaFile) -> bool:
 
 class _LazyTextEmbedder:
     def __init__(self, text_embedder: Embedder | Callable[[], Embedder]):
-        # An Embedder instance satisfies the runtime-checkable Embedder protocol;
-        # a zero-arg factory does not, so this cleanly tells them apart without
-        # a separate flag.
+        # An Embedder instance satisfies the runtime-checkable Embedder
+        # protocol; a zero-arg factory does not, so this cleanly tells them
+        # apart without a separate flag.
         self._text_embedder = text_embedder
         self._resolved: Embedder | None = (
             text_embedder if isinstance(text_embedder, Embedder) else None
@@ -342,7 +343,7 @@ def index(
                 n_vectors=n_vectors,
             )
             logger.debug('Done')
-        except Exception as exc:  # noqa: BLE001 - one bad file must not kill the run
+        except Exception as exc:
             # Clean up any partially-written rows to avoid orphaned data
             # (e.g. embeddings committed before a transcript write failed).
             store.delete_file(key)
