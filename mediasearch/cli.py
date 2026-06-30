@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from tqdm import tqdm
 
 from . import pipeline, search as search_mod
 from .config import Config, DEFAULT_MODEL, DEFAULT_TEXT_MODEL, TEXT_EMBED_DIM
@@ -153,7 +154,6 @@ def index(
     ),
 ) -> None:
     """Index directories containing media files for semantic search."""
-    from tqdm import tqdm
 
     config = _config(index_path, model)
     if batch_size is not None:

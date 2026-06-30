@@ -18,7 +18,11 @@ from .config import DEFAULT_TEXT_MODEL, EMBED_DIM, TEXT_EMBED_DIM
 
 
 def mlx_load(model_name: str):
-    """Load an MLX embeddings model when a real embedder is constructed."""
+    """
+    Load an MLX embeddings model when a real embedder is constructed.
+
+    We do this since loading this module can take ~2 seconds...
+    """
     from mlx_embeddings import load
 
     return load(model_name)

@@ -62,6 +62,7 @@ def _process_audio(
     buffer cache is cleared after each chunk, so a long video's transcript
     never materialises all of its vectors in memory at once.
     """
+    breakpoint()
     if not _has_audio_track(mf.path):
         logger.debug(
             'Skipping audio processing: no audio tracks found in %s', mf.path
