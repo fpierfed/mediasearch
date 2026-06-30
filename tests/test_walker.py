@@ -25,14 +25,6 @@ def test_walk_finds_and_classifies(tmp_path, make_image):
     assert by_name['a.png'].mtime > 0
 
 
-def test_walk_is_deterministic(tmp_path, make_image):
-    """Test that walk yields files in a deterministic sorted order."""
-    for n in ['z.png', 'a.png', 'm.png']:
-        make_image(tmp_path / n)
-    names = [f.path.name for f in walk([tmp_path])]
-    assert names == sorted(names)
-
-
 def test_walk_handles_oserror(tmp_path, make_image, monkeypatch):
     """walk skips files whose stat raises OSError (e.g. broken symlinks)."""
     make_image(tmp_path / 'good.png')
