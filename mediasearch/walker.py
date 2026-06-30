@@ -1,4 +1,3 @@
-import stat
 from pathlib import Path
 from typing import Iterator, NamedTuple
 
@@ -13,29 +12,35 @@ class MediaFile(NamedTuple):
 
 
 def walk(roots: list[Path]) -> Iterator[MediaFile]:
-    """Yield every recognised media file under *roots*.
+    """
+    Yield every recognised media file under *roots*.
 
-    Path.stat() follows symlinks, so media files reached through a symlink
+    We intentionally follow symlinks, so media files reached through a symlink
     (even one pointing outside the root) are intentionally included.  Broken
     symlinks or unreadable files are skipped via OSError.
     """
     for root in roots:
         root = Path(root).resolve()
-        for p in sorted(root.rglob('*')):
-            if any(part.startswith('.') for part in p.relative_to(root).parts):
+        for dirpath, _, filenames in root.walk(
+            on_error=print, follow_symlinks=True
+        ):
+            # We skip directories and files whose name starts with '.'
+            if dirpath.name.startswith('.'):
                 continue
-            try:
+
+            for filename in filenames:
+                if filename.startswith('.'):
+                    continue
+
+                p = dirpath / filename
+                media_type = classify_ext(p)
+                if media_type is None:
+                    continue
+
                 st = p.stat()
-            except OSError:
-                continue
-            if not stat.S_ISREG(st.st_mode):
-                continue
-            media_type = classify_ext(p)
-            if media_type is None:
-                continue
-            yield MediaFile(
-                path=p,
-                media_type=media_type,
-                mtime=st.st_mtime,
-                size=st.st_size,
-            )
+                yield MediaFile(
+                    path=p,
+                    media_type=media_type,
+                    mtime=st.st_mtime,
+                    size=st.st_size,
+                )
