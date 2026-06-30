@@ -9,6 +9,9 @@ import numpy as np
 import pillow_heif
 from PIL import Image
 
+from AVFoundation import AVURLAsset, AVMediaTypeAudio
+from Foundation import NSURL
+
 from .config import DEFAULT_AUDIO_MODEL, Config
 from .embedder import Embedder
 from .frames import Frame, sample_video
@@ -28,6 +31,24 @@ def _clear_mlx_cache() -> None:
         mx.clear_cache()
     except Exception:
         logger.debug('Failed to clear MLX cache', exc_info=True)
+
+
+def _has_audio_track(path: Path) -> bool:
+    """
+    Check if a video file has at least one audio track using AVFoundation.
+    """
+
+    try:
+        url = NSURL.fileURLWithPath_(str(path))
+        if not url:
+            return False
+        asset = AVURLAsset.URLAssetWithURL_options_(url, None)
+        if not asset:
+            return False
+        return len(asset.tracksWithMediaType_(AVMediaTypeAudio)) > 0
+    except Exception:
+        # Fallback to true if we fail to check, so we still attempt transcription
+        return True
 
 
 def _process_audio(
@@ -50,6 +71,12 @@ def _process_audio(
     buffer cache is cleared after each chunk, so a long video's transcript
     never materialises all of its vectors in memory at once.
     """
+    if not _has_audio_track(mf.path):
+        logger.debug(
+            'Skipping audio processing: no audio tracks found in %s', mf.path
+        )
+        return [] if store is None else 0
+
     try:
         import mlx_whisper
 
