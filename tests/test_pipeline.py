@@ -116,6 +116,7 @@ def test_process_audio_success(tmp_path, sample_video, monkeypatch):
         }
 
     monkeypatch.setattr(mlx_whisper, 'transcribe', mock_transcribe)
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     text_embedder = FakeEmbedder()
     rows = _process_audio(mf, text_embedder, audio_model=DEFAULT_AUDIO_MODEL)
@@ -149,6 +150,7 @@ def test_process_audio_writes_transcripts_in_chunks(
     monkeypatch.setattr(
         mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': segments}
     )
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     vid = tmp_path / 'clip.mp4'
     vid.write_bytes(sample_video.read_bytes())
@@ -194,6 +196,7 @@ def test_process_audio_empty_segments(tmp_path, sample_video, monkeypatch):
     monkeypatch.setattr(
         mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': []}
     )
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     rows = _process_audio(mf, FakeEmbedder(), audio_model=DEFAULT_AUDIO_MODEL)
     assert rows == []
@@ -217,6 +220,7 @@ def test_process_audio_failure(tmp_path, sample_video, monkeypatch):
         raise RuntimeError('boom')
 
     monkeypatch.setattr(mlx_whisper, 'transcribe', _raise)
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     rows = _process_audio(mf, FakeEmbedder(), audio_model=DEFAULT_AUDIO_MODEL)
     assert rows == []  # swallowed, not raised
@@ -359,6 +363,7 @@ def test_text_embedder_factory_resolved_once_for_videos(
             'segments': [{'text': 'hi', 'start': 0.0, 'end': 1.0}]
         },
     )
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     lib = tmp_path / 'lib'
     lib.mkdir()
@@ -390,6 +395,7 @@ def test_audio_empty_segments_does_not_resolve_text_embedder(
     monkeypatch.setattr(
         mlx_whisper, 'transcribe', lambda *a, **kw: {'segments': []}
     )
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
     vid = tmp_path / 'clip.mp4'
     vid.write_bytes(sample_video.read_bytes())
     mf = MediaFile(
@@ -424,6 +430,7 @@ def test_index_no_audio_does_not_transcribe_or_load_text_embedder(
         return {'segments': []}
 
     monkeypatch.setattr(mlx_whisper, 'transcribe', tracking_transcribe)
+    monkeypatch.setattr('mediasearch.pipeline._has_audio_track', lambda x: True)
 
     lib = tmp_path / 'lib'
     lib.mkdir()
