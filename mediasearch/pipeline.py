@@ -3,6 +3,7 @@ import math
 import uuid
 from pathlib import Path
 from typing import Callable
+import time
 
 import numpy as np
 import pillow_heif
@@ -52,6 +53,10 @@ def _process_audio(
     try:
         import mlx_whisper
 
+        # Note that mlx_whisper uses ffmpeg to extract & downsample the video
+        # audio track, so while it could be tempting to extract the audio
+        # ourselves, it would be double work. This also means that we do have
+        # a hard dependency on ffmpeg.
         result = mlx_whisper.transcribe(
             str(mf.path),
             path_or_hf_repo=audio_model,
@@ -98,9 +103,7 @@ def _process_audio(
         return [] if store is None else 0
 
 
-def _load_bounded_rgb_image(
-    path: Path, max_size: int | None
-) -> Image.Image:
+def _load_bounded_rgb_image(path: Path, max_size: int | None) -> Image.Image:
     """
     Open *path* as an RGB image whose longer edge is at most *max_size* px.
 
@@ -203,6 +206,8 @@ def _unchanged(prev: dict | ManifestStatus, mf: MediaFile) -> bool:
 
     Accepts either a full manifest dict or a compact :class:`ManifestStatus`.
     """
+    logger.debug('>>> Check if unchanged')
+
     prev_mtime = prev['mtime'] if isinstance(prev, dict) else prev.mtime
     prev_size = prev['size'] if isinstance(prev, dict) else prev.size
     # Use math.isclose for mtime because the value round-trips through
@@ -253,8 +258,14 @@ def index(
     get_text_embedder = _LazyTextEmbedder(text_embedder)
     manifest = store.manifest_statuses()
     for mf in walk([Path(r) for r in roots]):
+        t0 = time.time()
+
         key = str(mf.path)
         prev = manifest.get(key)
+
+        logger.debug('>>> Pre-processing checks...')
+        logger.debug(f'>>> prev={prev}')
+        logger.debug(f'>>> current={key}')
 
         # Skip files that are unchanged AND already settled (done or
         # permanently errored), unless --reindex forces a rebuild.
@@ -267,6 +278,8 @@ def index(
         ):
             if progress:
                 progress()
+
+            logger.debug('>>> Skipped')
             continue
 
         store.delete_file(key)  # clear any stale/partial rows
@@ -277,9 +290,21 @@ def index(
             media_type=mf.media_type,
             status='pending',
         )
+        logger.debug(f'>>> Elapsed: {time.time() - t0:.02f}')
+        del t0
+
+        logger.debug(f'>>> Processing {key}...')
+
         try:
+            t0 = time.time()
+            logger.debug('>>> _process()')
             n_vectors = _process(mf, config, embedder, store)
+            logger.debug(f'>>> Elapsed: {time.time() - t0:.02f}')
+            del t0
+
             if mf.media_type == 'video' and config.index_audio:
+                t0 = time.time()
+                logger.debug('>>> _process_audio()')
                 _process_audio(
                     mf,
                     get_text_embedder,
@@ -287,6 +312,8 @@ def index(
                     store=store,
                     batch_size=config.batch_size,
                 )
+                logger.debug(f'>>> Elapsed: {time.time() - t0:.02f}')
+                del t0
 
             store.set_file(
                 path=key,
@@ -296,6 +323,7 @@ def index(
                 status='done',
                 n_vectors=n_vectors,
             )
+            logger.debug('Done')
         except Exception as exc:  # noqa: BLE001 - one bad file must not kill the run
             # Clean up any partially-written rows to avoid orphaned data
             # (e.g. embeddings committed before a transcript write failed).
@@ -308,5 +336,6 @@ def index(
                 status='error',
                 error_msg=str(exc),
             )
+            logger.debug('Error')
         if progress:
             progress()
