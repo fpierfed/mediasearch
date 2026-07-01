@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -172,12 +174,14 @@ def test_mlx_text_embedder_embed_images_raises(monkeypatch):
         embedder.embed_images([dummy])
 
 
-def test_mlx_siglip_smoke(monkeypatch):
+def test_mlx_siglip_smoke():
     """Smoke-test MLXSigLIPEmbedder text and image embedding when MLX
     is available.
 
-    Skipped on machines without a working MLX install (e.g. CI, Intel Macs).
+    Opt-in because this loads the real model and may download weights.
     """
+    if os.environ.get('MEDIASEARCH_RUN_MLX_SMOKE') != '1':
+        pytest.skip('set MEDIASEARCH_RUN_MLX_SMOKE=1 for real MLX smoke test')
 
     # Only run when MLX is actually importable and functional.
     pytest.importorskip(

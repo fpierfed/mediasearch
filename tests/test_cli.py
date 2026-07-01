@@ -8,6 +8,12 @@ from mediasearch.cli import app
 runner = CliRunner()
 
 
+def _invoke_index(args):
+    r = runner.invoke(app, args)
+    assert r.exit_code == 0, r.output
+    return r
+
+
 def test_index_then_status(tmp_path, make_image, monkeypatch):
     """Test that indexing a directory works and status returns file counts."""
     monkeypatch.setenv('MEDIASEARCH_FAKE_EMBEDDER', '1')
@@ -16,8 +22,7 @@ def test_index_then_status(tmp_path, make_image, monkeypatch):
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
 
-    r = runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
-    assert r.exit_code == 0, r.output
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(app, ['status', '--index-path', str(idx)])
     assert r.exit_code == 0
@@ -31,7 +36,7 @@ def test_search_json_output(tmp_path, make_image, monkeypatch):
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(
         app, ['search', 'a photo', '--index-path', str(idx), '--json']
@@ -52,7 +57,7 @@ def test_similar_image(tmp_path, make_image, monkeypatch):
     make_image(lib / 'a.png', (1, 2, 3))
     make_image(lib / 'b.png', (9, 9, 9))
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(
         app,
@@ -76,7 +81,7 @@ def test_invalid_type_is_rejected(tmp_path, make_image, monkeypatch):
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
     r = runner.invoke(
         app, ['search', 'q', '--index-path', str(idx), '--type', 'bogus']
     )
@@ -152,12 +157,7 @@ def test_dim_mismatch_without_reindex_errors(
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
     # build a 768-d index with the default model
-    assert (
-        runner.invoke(
-            app, ['index', str(lib), '--index-path', str(idx)]
-        ).exit_code
-        == 0
-    )
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
     # now query/index with the 1152-d model, no reindex -> friendly error
     r = runner.invoke(
         app, ['search', 'q', '--index-path', str(idx), '--model', BASE_MODEL]
@@ -175,12 +175,7 @@ def test_dim_mismatch_with_reindex_rebuilds(tmp_path, make_image, monkeypatch):
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    assert (
-        runner.invoke(
-            app, ['index', str(lib), '--index-path', str(idx)]
-        ).exit_code
-        == 0
-    )
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
     # rebuild at 1152 with the SO400M model
     r = runner.invoke(
         app,
@@ -223,7 +218,7 @@ def test_similar_clip(tmp_path, make_image, sample_video, monkeypatch):
     (lib / 'clip.mp4').write_bytes(sample_video.read_bytes())
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(
         app,
@@ -251,7 +246,7 @@ def test_search_plain_text_output(tmp_path, make_image, monkeypatch):
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(app, ['search', 'a photo', '--index-path', str(idx)])
     assert r.exit_code == 0, r.output
@@ -266,12 +261,19 @@ def test_open_flag(tmp_path, make_image, monkeypatch):
     lib.mkdir()
     make_image(lib / 'a.png')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
+    calls = []
+
+    def fake_run(args, check):
+        calls.append((args, check))
+
+    monkeypatch.setattr('mediasearch.cli.subprocess.run', fake_run)
 
     r = runner.invoke(
         app, ['search', 'a photo', '--index-path', str(idx), '--open']
     )
     assert r.exit_code == 0, r.output
+    assert calls == [(['open', '-R', str(lib / 'a.png')], False)]
 
 
 def test_status_shows_errors(tmp_path, make_image, monkeypatch):
@@ -282,7 +284,7 @@ def test_status_shows_errors(tmp_path, make_image, monkeypatch):
     make_image(lib / 'good.png')
     (lib / 'bad.mp4').write_bytes(b'not a real video')
     idx = tmp_path / 'idx'
-    runner.invoke(app, ['index', str(lib), '--index-path', str(idx)])
+    _invoke_index(['index', str(lib), '--index-path', str(idx)])
 
     r = runner.invoke(app, ['status', '--index-path', str(idx)])
     assert r.exit_code == 0, r.output
